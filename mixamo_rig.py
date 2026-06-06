@@ -2914,17 +2914,27 @@ def _make_rig(self, context):
         else reference_chest
     )
 
-    kai_parent_spine_name = c_prefix + spine_rig_names["spine3"]
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] _make_rig spine chain: "
+            f"Spines={[b.name for b in reference_mapping['spines']]} | "
+            f"Chest={reference_chest.name} | "
+            f"LastSpine={reference_last_spine.name}"
+        )
+    )
+
+    kai_chest_ctrl_name = c_prefix + spine_rig_names["spine3"]
+    kai_parent_spine_name = kai_chest_ctrl_name
 
     self.report(
         {"INFO"},
         (
-            "[Kai] Parent target prepared: "
+            "[Kai] Chest control target: "
             f"ReferenceChest={reference_chest.name} | "
-            f"ReferenceLastSpine={reference_last_spine.name} | "
-            f"CurrentCtrlParent={kai_parent_spine_name}"
+            f"CtrlChest={kai_chest_ctrl_name}"
         )
-    )
+)
 
     rig_name = context.active_object.name
     rig = get_object(rig_name)
@@ -3029,10 +3039,23 @@ def _make_rig(self, context):
 
     # Spine bones
     print("    Creating Spine bones...")
+
+    kai_source_spine_names = [bone.name for bone in reference_mapping["spines"]]
+    kai_source_chest_name = reference_chest.name
+
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] Source spine setup: "
+            f"Spines={kai_source_spine_names} | "
+            f"Chest={kai_source_chest_name}"
+        )
+    )
+
     hips_name = get_src_bone_name(spine_names["pelvis"])
-    spine_name = get_src_bone_name(spine_names["spine1"])
-    spine1_name = get_src_bone_name(spine_names["spine2"])
-    spine2_name = get_src_bone_name(spine_names["spine3"])
+    spine_name = get_src_bone_name(kai_source_spine_names[0])
+    spine1_name = get_src_bone_name(kai_source_spine_names[1])
+    spine2_name = get_src_bone_name(kai_source_chest_name)
 
     hips = get_edit_bone(hips_name)
     spine = get_edit_bone(spine_name)
@@ -3086,7 +3109,8 @@ def _make_rig(self, context):
         set_bone_collection(rig, c_spine1, coll_ctrl_name)
 
         # Spine2 Ctrl
-        c_spine2_name = c_prefix + spine_rig_names["spine3"]
+        # c_spine2_name = c_prefix + spine_rig_names["spine3"]
+        c_spine2_name = kai_chest_ctrl_name
         c_spine2 = create_edit_bone(c_spine2_name)
         copy_bone_transforms(spine2, c_spine2)
         c_spine2.parent = c_spine1
