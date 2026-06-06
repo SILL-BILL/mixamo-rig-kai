@@ -1453,36 +1453,10 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             "necks": neck_bones,
             "head": head_bone,
         }
-        reference_hip = reference_mapping["hip"]
-        reference_spines = reference_mapping["spines"]
-        reference_chest = reference_mapping["chest"]
-        reference_necks = reference_mapping["necks"]
-        reference_head = reference_mapping["head"]
-
-        reference_last_spine = reference_spines[-1] if reference_spines else reference_chest
-        reference_first_neck = reference_necks[0] if reference_necks else None
-        reference_last_neck = reference_necks[-1] if reference_necks else None
-
+        self.reference_mapping = reference_mapping
         self.report(
             {"INFO"},
-            (
-                "[Kai] Reference Points OK: "
-                f"LastSpine={reference_last_spine.name} | "
-                f"FirstNeck={(reference_first_neck.name if reference_first_neck else 'None')} | "
-                f"LastNeck={(reference_last_neck.name if reference_last_neck else 'None')}"
-            )
-        )
-
-        self.report(
-            {"INFO"},
-            (
-                "[Kai] Reference Mapping OK: "
-                f"Hip={reference_mapping['hip'].name} | "
-                f"Spines={', '.join([b.name for b in reference_mapping['spines']])} | "
-                f"Chest={reference_mapping['chest'].name} | "
-                f"Necks={', '.join([b.name for b in reference_mapping['necks']])} | "
-                f"Head={reference_mapping['head'].name}"
-            )
+            "[Kai] Saved reference_mapping to operator"
         )
 
         # ~ layer_select = []
@@ -2920,6 +2894,38 @@ def _update(self, context):
 def _make_rig(self, context):
     print("\nBuilding control rig...")
 
+    if hasattr(self, "reference_mapping"):
+        self.report(
+            {"INFO"},
+            "[Kai] reference_mapping received"
+        )
+    else:
+        self.report(
+            {"ERROR"},
+            "[Kai] reference_mapping missing"
+        )
+
+    reference_mapping = self.reference_mapping
+
+    reference_chest = reference_mapping["chest"]
+    reference_last_spine = (
+        reference_mapping["spines"][-1]
+        if reference_mapping["spines"]
+        else reference_chest
+    )
+
+    kai_parent_spine_name = c_prefix + spine_rig_names["spine3"]
+
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] Parent target prepared: "
+            f"ReferenceChest={reference_chest.name} | "
+            f"ReferenceLastSpine={reference_last_spine.name} | "
+            f"CurrentCtrlParent={kai_parent_spine_name}"
+        )
+    )
+
     rig_name = context.active_object.name
     rig = get_object(rig_name)
 
@@ -3122,7 +3128,8 @@ def _make_rig(self, context):
         c_neck_name = c_prefix + head_rig_names["neck"]
         c_neck = create_edit_bone(c_neck_name)
         copy_bone_transforms(neck, c_neck)
-        c_neck.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        # c_neck.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        c_neck.parent = get_edit_bone(kai_parent_spine_name)
         set_bone_collection(rig, c_neck, coll_ctrl_name)
 
         # Head Ctrl
@@ -3558,7 +3565,8 @@ def _make_rig(self, context):
         c_shoulder_name = c_prefix + arm_rig_names["shoulder"] + _side
         c_shoulder = create_edit_bone(c_shoulder_name)
         copy_bone_transforms(shoulder, c_shoulder)
-        c_shoulder.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        # c_shoulder.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        c_shoulder.parent = get_edit_bone(kai_parent_spine_name)
         set_bone_collection(rig, c_shoulder, coll_ctrl_name)
 
         # Arm IK
@@ -3614,7 +3622,8 @@ def _make_rig(self, context):
         # Arm FK Ctrl
         c_arm_fk_name = c_prefix + arm_rig_names["arm_fk"] + _side
         c_arm_fk = create_edit_bone(c_arm_fk_name)
-        c_arm_fk.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        # c_arm_fk.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+        c_arm_fk.parent = get_edit_bone(kai_parent_spine_name)
         copy_bone_transforms(arm_ik, c_arm_fk)
         set_bone_collection(rig, c_arm_fk, coll_ctrl_name)
 
