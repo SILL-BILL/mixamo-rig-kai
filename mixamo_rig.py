@@ -1319,6 +1319,21 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         ),
         default=True,
     )
+
+    map_hip: bpy.props.StringProperty(name="Hip", default="Hips")
+    map_spine1: bpy.props.StringProperty(name="Spine 1", default="Spine")
+    map_spine2: bpy.props.StringProperty(name="Spine 2", default="Spine1")
+    map_spine3: bpy.props.StringProperty(name="Spine 3", default="")
+    map_spine4: bpy.props.StringProperty(name="Spine 4", default="")
+    map_spine5: bpy.props.StringProperty(name="Spine 5", default="")
+    map_spine6: bpy.props.StringProperty(name="Spine 6", default="")
+    map_chest: bpy.props.StringProperty(name="Chest", default="Spine2")
+
+    map_neck1: bpy.props.StringProperty(name="Neck 1", default="Neck")
+    map_neck2: bpy.props.StringProperty(name="Neck 2", default="")
+    map_neck3: bpy.props.StringProperty(name="Neck 3", default="")
+    map_head: bpy.props.StringProperty(name="Head", default="Head")
+
     animated_armature = None
 
     @classmethod
@@ -1339,8 +1354,137 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         layout.prop(self, "ik_arms", text="IK Arms")
         layout.prop(self, "ik_legs", text="IK Legs")
 
+        box = layout.box()
+        box.label(text="MixamoRig Kai Mapping")
+
+        box.prop_search(self, "map_hip", context.active_object.data, "bones", text="Hip")
+        box.prop_search(self, "map_chest", context.active_object.data, "bones", text="Chest")
+        box.prop_search(self, "map_head", context.active_object.data, "bones", text="Head")
+
+        box.separator()
+        box.label(text="Optional Spine")
+        box.prop(self, "map_spine1")
+        box.prop(self, "map_spine2")
+        box.prop(self, "map_spine3")
+        box.prop(self, "map_spine4")
+        box.prop(self, "map_spine5")
+        box.prop(self, "map_spine6")
+
+        box.separator()
+        box.label(text="Optional Neck")
+        box.prop(self, "map_neck1")
+        box.prop(self, "map_neck2")
+        box.prop(self, "map_neck3")
+
     def execute(self, context):
         debug = False
+
+        spine_names = [
+            self.map_spine1,
+            self.map_spine2,
+            self.map_spine3,
+            self.map_spine4,
+            self.map_spine5,
+            self.map_spine6,
+        ]
+
+        neck_names = [
+            self.map_neck1,
+            self.map_neck2,
+            self.map_neck3,
+        ]
+
+        spine_names = [name for name in spine_names if name]
+        neck_names = [name for name in neck_names if name]
+
+        self.report(
+            {"INFO"},
+            (
+                f"[Kai] Hip={self.map_hip} | "
+                f"Spine={', '.join(spine_names)} | "
+                f"Chest={self.map_chest} | "
+                f"Neck={', '.join(neck_names)} | "
+                f"Head={self.map_head}"
+            )
+        )
+
+        arm = context.active_object
+
+        hip_bone = arm.data.bones.get(self.map_hip)
+        chest_bone = arm.data.bones.get(self.map_chest)
+        head_bone = arm.data.bones.get(self.map_head)
+
+        spine_bones = [arm.data.bones.get(name) for name in spine_names]
+        neck_bones = [arm.data.bones.get(name) for name in neck_names]
+
+        missing_bones = []
+
+        if hip_bone is None:
+            missing_bones.append(self.map_hip)
+        if chest_bone is None:
+            missing_bones.append(self.map_chest)
+        if head_bone is None:
+            missing_bones.append(self.map_head)
+
+        missing_bones += [name for name, bone in zip(spine_names, spine_bones) if bone is None]
+        missing_bones += [name for name, bone in zip(neck_names, neck_bones) if bone is None]
+
+        if missing_bones:
+            self.report(
+                {"ERROR"},
+                "[Kai] Missing bones: " + ", ".join(missing_bones)
+            )
+            return {"CANCELLED"}
+
+        self.report(
+            {"INFO"},
+            "[Kai] Spine bones OK: " + ", ".join([bone.name for bone in spine_bones])
+        )
+
+        self.report(
+            {"INFO"},
+            "[Kai] Neck bones OK: " + ", ".join([bone.name for bone in neck_bones])
+        )
+
+        reference_mapping = {
+            "hip": hip_bone,
+            "spines": spine_bones,
+            "chest": chest_bone,
+            "necks": neck_bones,
+            "head": head_bone,
+        }
+        reference_hip = reference_mapping["hip"]
+        reference_spines = reference_mapping["spines"]
+        reference_chest = reference_mapping["chest"]
+        reference_necks = reference_mapping["necks"]
+        reference_head = reference_mapping["head"]
+
+        reference_last_spine = reference_spines[-1] if reference_spines else reference_chest
+        reference_first_neck = reference_necks[0] if reference_necks else None
+        reference_last_neck = reference_necks[-1] if reference_necks else None
+
+        self.report(
+            {"INFO"},
+            (
+                "[Kai] Reference Points OK: "
+                f"LastSpine={reference_last_spine.name} | "
+                f"FirstNeck={(reference_first_neck.name if reference_first_neck else 'None')} | "
+                f"LastNeck={(reference_last_neck.name if reference_last_neck else 'None')}"
+            )
+        )
+
+        self.report(
+            {"INFO"},
+            (
+                "[Kai] Reference Mapping OK: "
+                f"Hip={reference_mapping['hip'].name} | "
+                f"Spines={', '.join([b.name for b in reference_mapping['spines']])} | "
+                f"Chest={reference_mapping['chest'].name} | "
+                f"Necks={', '.join([b.name for b in reference_mapping['necks']])} | "
+                f"Head={reference_mapping['head'].name}"
+            )
+        )
+
         # ~ layer_select = []
         original_mode = "OBJECT"  # Safe default in case mode detection fails
         arm = None
