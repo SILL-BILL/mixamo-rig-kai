@@ -1981,7 +1981,8 @@ def _build_constraints_for_rig(rig):
     c_hips_free_name = c_prefix + spine_rig_names["hips_free"]
     c_spine_name = c_prefix + spine_rig_names["spine1"]
     c_spine1_name = c_prefix + spine_rig_names["spine2"]
-    c_spine2_name = c_prefix + spine_rig_names["spine3"]
+    # c_spine2_name = c_prefix + spine_rig_names["spine3"]
+    c_spine2_name = c_prefix + kai_source_chest_name
 
     mixamo_spine_pb = get_pose_bone(hips_name)
     c_hips_pb = get_pose_bone(c_hips_name)
