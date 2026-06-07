@@ -1955,6 +1955,27 @@ def _build_constraints_for_rig(rig):
         set_bone_color_group(rig, c_master_pb, "master")
 
     hips_name = get_src_bone_name(spine_names["pelvis"])
+    kai_spine_names = rig.data.get("kai_spine_names", "")
+    kai_chest_name = rig.data.get("kai_chest_name", "")
+
+    print(
+        "[Kai] Loaded Kai mapping from rig.data: "
+        f"Spines={kai_spine_names} | "
+        f"Chest={kai_chest_name}"
+    )
+
+    kai_source_spine_names = [
+        name for name in kai_spine_names.split(",")
+        if name
+    ]
+    kai_source_chest_name = kai_chest_name
+
+    print(
+        "[Kai] Parsed Kai mapping: "
+        f"Spines={kai_source_spine_names} | "
+        f"Chest={kai_source_chest_name}"
+    )
+
     c_hips_name = c_prefix + spine_rig_names["pelvis"]
     hips_free_h_name = spine_rig_names["hips_free_helper"]
     c_hips_free_name = c_prefix + spine_rig_names["hips_free"]
@@ -2001,20 +2022,23 @@ def _build_constraints_for_rig(rig):
         set_bone_color_group(rig, c_spine2_pb, "body_mid")
 
         spine_bone_matches = {
-            "1": c_spine_name,
-            "2": c_spine1_name,
-            "3": c_spine2_name,
+            kai_source_spine_names[0]: c_spine_name,
+            kai_source_spine_names[1]: c_spine1_name,
+            kai_source_chest_name: c_spine2_name,
         }
-        for str_idx in spine_bone_matches:
-            c_name = spine_bone_matches[str_idx]
-            mixamo_bname = get_src_bone_name(spine_names["spine" + str_idx])
+
+        for mixamo_bname, c_name in spine_bone_matches.items():
             mixamo_spine_pb = get_pose_bone(mixamo_bname)
+
             if mixamo_spine_pb is None:
                 continue
+
             cns = mixamo_spine_pb.constraints.get("Copy Transforms")
+
             if cns is None:
                 cns = mixamo_spine_pb.constraints.new("COPY_TRANSFORMS")
                 cns.name = "Copy Transforms"
+
             cns.target = rig
             cns.subtarget = c_name
 
@@ -4666,6 +4690,18 @@ def _make_rig(self, context):
     rig.show_in_front = False
 
     # tag the armature with a custom prop to specify the control rig is built
+    rig.data["kai_spine_names"] = ",".join(kai_source_spine_names)
+    rig.data["kai_chest_name"] = kai_source_chest_name
+
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] Saved Kai mapping to rig.data: "
+            f"Spines={rig.data['kai_spine_names']} | "
+            f"Chest={rig.data['kai_chest_name']}"
+        )
+    )
+
     rig.data["mr_control_rig"] = True
 
     print("  Control rig build complete!")
