@@ -488,10 +488,13 @@ def _fit_controller_custom_shapes(rig):
             margin=0.03,
         )
 
+    kai_chest_name = rig.data.get("kai_chest_name", spine_rig_names["spine3"])
+    kai_chest_ctrl_name = c_prefix + kai_chest_name
+
     for bone_name in (
         c_prefix + spine_rig_names["spine1"],
         c_prefix + spine_rig_names["spine2"],
-        c_prefix + spine_rig_names["spine3"],
+        kai_chest_ctrl_name,
         c_prefix + head_rig_names["neck"],
     ):
         torso_pb = _get_armature_pose_bone(rig, bone_name)
@@ -2949,7 +2952,8 @@ def _make_rig(self, context):
         )
     )
 
-    kai_chest_ctrl_name = c_prefix + spine_rig_names["spine3"]
+    # kai_chest_ctrl_name = c_prefix + spine_rig_names["spine3"]
+    kai_chest_ctrl_name = c_prefix + reference_chest.name
     kai_parent_spine_name = kai_chest_ctrl_name
 
     self.report(
