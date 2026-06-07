@@ -3770,6 +3770,11 @@ def _make_rig(self, context):
         print("    Setting up Spine pose...")
         spine_data = edit_data["spine"]
 
+        self.report(
+            {"INFO"},
+            f"[Kai] Spine Data: {spine_data}"
+        )
+
         c_hips_pb = get_pose_bone(spine_data["c_hips_name"])
         get_pose_bone(spine_data["hips_free_h_name"])
         c_hips_free_pb = get_pose_bone(spine_data["c_hips_free_name"])
@@ -3813,18 +3818,24 @@ def _make_rig(self, context):
 
         # Spine
         spine_bone_matches = {
-            "1": spine_data["c_spine_name"],
-            "2": spine_data["c_spine1_name"],
-            "3": spine_data["c_spine2_name"],
+            spine_data["spine_name"]: spine_data["c_spine_name"],
+            spine_data["spine1_name"]: spine_data["c_spine1_name"],
+            spine_data["spine2_name"]: spine_data["c_spine2_name"],
         }
-        for str_idx in spine_bone_matches:
-            c_name = spine_bone_matches[str_idx]
-            mixamo_bname = get_src_bone_name(spine_names["spine" + str_idx])
+
+        self.report(
+            {"INFO"},
+            f"[Kai] Pose spine data = {spine_data}"
+        )
+
+        for mixamo_bname, c_name in spine_bone_matches.items():
             mixamo_spine_pb = get_pose_bone(mixamo_bname)
+
             cns = mixamo_spine_pb.constraints.get("Copy Transforms")
             if cns is None:
                 cns = mixamo_spine_pb.constraints.new("COPY_TRANSFORMS")
                 cns.name = "Copy Transforms"
+
             cns.target = rig
             cns.subtarget = c_name
 
