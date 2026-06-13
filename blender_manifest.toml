@@ -3,7 +3,7 @@ schema_version = "1.0.0"
 id = "mixamo_rig_kai"
 version = "0.2.0"
 name = "Mixamo Rig Kai"
-tagline = "Flexible control rig generation with variable spine and neck support"
+tagline = "Variable spine and neck support for Mixamo rigs"
 maintainer = "Gonsaku"
 type = "add-on"
 
