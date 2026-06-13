@@ -15,7 +15,7 @@ class MR_MT_addon_preferences(bpy.types.AddonPreferences):  # noqa: N801
     mixamo_tab_name: bpy.props.StringProperty(
         name="Interface Tab",
         description="Name of the tab to display the interface in",  # noqa: E501
-        default="Mixamo",
+        default="MixamoKai",
         update=update_all_tab_names,
     )
 

@@ -1,13 +1,13 @@
 schema_version = "1.0.0"
 
 id = "mixamo_rig_kai"
-version = "0.1.0"
+version = "0.2.0"
 name = "Mixamo Rig Kai"
 tagline = "Generate a control rig from Mixamo Fbx skeleton"
-maintainer = "BeyondDev (Tyler Walker) <tyler@beyondstudios.us>"
+maintainer = "Gonsaku"
 type = "add-on"
 
-website = "https://github.com/tdw46/mixamo_blender4-main/tree/main"
+website = "https://github.com/SILL-BILL/mixamo-rig-kai"
 
 tags = ["Import-Export", "Rigging"]
 

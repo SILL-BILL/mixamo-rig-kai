@@ -18,17 +18,17 @@
 # ***** END GPL LICENCE BLOCK *****
 
 
-# bl_info = {
-#     "name": "Mixamo Rig",
-#     "author": "Mixamo - Xin + BeyondDev",
-#     "version": (1, 2, 0),
-#     "blender": (4, 2, 0),
-#     "location": "3D View > Mixamo> Control Rig",
-#     "description": "Generate a control rig from the selected Mixamo Fbx skeleton",
-#     "category": "Animation",
-#     "doc_url": "https://github.com/tdw46/mixamo_blender4-main/tree/main",
-#     "tracker_url": "https://github.com/tdw46/mixamo_blender4-main/tree/main",
-# }
+bl_info = {
+    "name": "Mixamo Rig Kai",
+    "author": "Original Author: BeyondDev (Tyler Walker); Kai Maintainer: Gonsaku",
+    "version": (0, 2, 0),
+    "blender": (4, 2, 0),
+    "location": "3D View > Mixamo > Control Rig",
+    "description": "Generate a flexible control rig from a Mixamo or reference-mapped humanoid skeleton",
+    "category": "Animation",
+    "doc_url": "https://github.com/SILL-BILL/mixamo-rig-kai",
+    "tracker_url": "https://github.com/SILL-BILL/mixamo-rig-kai/issues",
+}
 
 
 if "bpy" in locals():

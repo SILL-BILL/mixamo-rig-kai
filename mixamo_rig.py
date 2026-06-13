@@ -116,6 +116,18 @@ def _get_armature_pose_bone(armature, bone_name):
     return pose.bones.get(bone_name)
 
 
+_shape_fit_mesh_warning_names = set()
+
+
+def _warn_shape_fit_mesh_once(obj, action, exc):
+    obj_name = getattr(obj, "name", "<unknown>")
+    key = (obj_name, action)
+    if key in _shape_fit_mesh_warning_names:
+        return
+    _shape_fit_mesh_warning_names.add(key)
+    print(f"  Warning: Could not {action} mesh '{obj_name}': {exc}")
+
+
 def _ensure_ik_fk_switch_prop(pbone, default_value=0.0):
     if pbone is None:
         return False
@@ -210,6 +222,110 @@ def _get_src_bone_name_resolver(rig):
         return base_name
 
     return get_src_bone_name
+
+
+def _kai_prefixed_source_bone_name(base_name, detected_prefix):
+    if not base_name:
+        return base_name
+    if detected_prefix and not base_name.startswith(detected_prefix):
+        return detected_prefix + base_name
+    return base_name
+
+
+def _kai_resolve_spine_sources(source_spine_names, source_chest_name):
+    spine_names = [name for name in source_spine_names if name]
+    chest_name = source_chest_name
+    first_spine_name = spine_names[0] if spine_names else chest_name
+    second_spine_name = spine_names[1] if len(spine_names) > 1 else first_spine_name
+    return spine_names, chest_name, first_spine_name, second_spine_name
+
+
+def _kai_unique_bone_names(bone_names):
+    unique_names = []
+    seen = set()
+    for name in bone_names:
+        if not name or name in seen:
+            continue
+        seen.add(name)
+        unique_names.append(name)
+    return unique_names
+
+
+def _kai_build_spine_control_pairs(
+    source_spine_names,
+    source_chest_name,
+    detected_prefix="",
+):
+    raw_names = _kai_unique_bone_names(
+        list(source_spine_names) + ([source_chest_name] if source_chest_name else [])
+    )
+    return [
+        {
+            "raw_name": raw_name,
+            "source_name": _kai_prefixed_source_bone_name(raw_name, detected_prefix),
+            "control_name": c_prefix + raw_name,
+        }
+        for raw_name in raw_names
+    ]
+
+
+def _kai_get_mapping_names_from_rig_data(rig):
+    data = getattr(rig, "data", None)
+    if data is None:
+        return {
+            "hip": spine_names["pelvis"],
+            "spines": [spine_names["spine1"], spine_names["spine2"]],
+            "chest": spine_names["spine3"],
+            "necks": [head_names["neck"]],
+            "head": head_names["head"],
+        }
+
+    if "kai_spine_names" in data.keys():
+        spine_source_names = [
+            name for name in data.get("kai_spine_names", "").split(",")
+            if name
+        ]
+    else:
+        spine_source_names = [spine_names["spine1"], spine_names["spine2"]]
+
+    if "kai_neck_names" in data.keys():
+        neck_source_names = [
+            name for name in data.get("kai_neck_names", "").split(",")
+            if name
+        ]
+    else:
+        neck_source_names = [head_names["neck"]]
+
+    return {
+        "hip": data.get("kai_hip_name", "") or spine_names["pelvis"],
+        "spines": spine_source_names,
+        "chest": data.get("kai_chest_name", "") or spine_names["spine3"],
+        "necks": neck_source_names,
+        "head": data.get("kai_head_name", "") or head_names["head"],
+    }
+
+
+def _kai_add_mapping_if_target_exists(bones_map, src_name, target_rig, target_name):
+    if not src_name or not target_name:
+        return False
+    if _get_armature_pose_bone(target_rig, target_name) is None:
+        return False
+    bones_map[src_name] = target_name
+    return True
+
+
+def _kai_safe_bone_name(value):
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value.strip()
+    try:
+        name = getattr(value, "name", "")
+    except (ReferenceError, RuntimeError, UnicodeDecodeError, UnicodeError):
+        return ""
+    if not isinstance(name, str):
+        return ""
+    return name.strip()
 
 
 def _has_fk_foot_setup_issue(rig, side):
@@ -488,15 +604,28 @@ def _fit_controller_custom_shapes(rig):
             margin=0.03,
         )
 
-    kai_chest_name = rig.data.get("kai_chest_name", spine_rig_names["spine3"])
-    kai_chest_ctrl_name = c_prefix + kai_chest_name
-
-    for bone_name in (
-        c_prefix + spine_rig_names["spine1"],
-        c_prefix + spine_rig_names["spine2"],
-        kai_chest_ctrl_name,
+    if "kai_spine_names" in rig.data.keys():
+        kai_spine_names = [
+            name for name in rig.data.get("kai_spine_names", "").split(",")
+            if name
+        ]
+    else:
+        kai_spine_names = [
+            spine_names["spine1"],
+            spine_names["spine2"],
+        ]
+    kai_chest_name = rig.data.get("kai_chest_name", "") or spine_names["spine3"]
+    torso_ctrl_names = [
+        pair["control_name"]
+        for pair in _kai_build_spine_control_pairs(
+            kai_spine_names,
+            kai_chest_name,
+        )
+    ] + [
         c_prefix + head_rig_names["neck"],
-    ):
+    ]
+
+    for bone_name in dict.fromkeys(torso_ctrl_names):
         torso_pb = _get_armature_pose_bone(rig, bone_name)
         if torso_pb is not None:
             _fit_torso_circle_shape_to_meshes(rig, torso_pb, meshes_using_rig)
@@ -524,7 +653,12 @@ def _raycast_meshes_world(meshes, depsgraph, origin_world, direction_world, dist
     best_hit_dist = None
 
     for obj in meshes:
-        eval_obj = obj.evaluated_get(depsgraph)
+        try:
+            eval_obj = obj.evaluated_get(depsgraph)
+        except RuntimeError as exc:
+            _warn_shape_fit_mesh_once(obj, "evaluate", exc)
+            continue
+
         if eval_obj.type != "MESH":
             continue
 
@@ -534,11 +668,16 @@ def _raycast_meshes_world(meshes, depsgraph, origin_world, direction_world, dist
             continue
         direction_local.normalize()
 
-        hit, location, _normal, _face_index = eval_obj.ray_cast(
-            inv_world @ origin_world,
-            direction_local,
-            distance=distance,
-        )
+        try:
+            hit, location, _normal, _face_index = eval_obj.ray_cast(
+                inv_world @ origin_world,
+                direction_local,
+                distance=distance,
+            )
+        except RuntimeError as exc:
+            _warn_shape_fit_mesh_once(obj, "ray cast", exc)
+            continue
+
         if not hit:
             continue
 
@@ -569,11 +708,21 @@ def _get_mesh_vertices_world(meshes, depsgraph, center_world=None, max_distance=
             if (info["center_world"] - center_world).length > max_distance + obj_radius:
                 continue
 
-        eval_obj = obj.evaluated_get(depsgraph)
+        try:
+            eval_obj = obj.evaluated_get(depsgraph)
+        except RuntimeError as exc:
+            _warn_shape_fit_mesh_once(obj, "evaluate", exc)
+            continue
+
         if eval_obj.type != "MESH":
             continue
 
-        mesh_data = eval_obj.to_mesh()
+        try:
+            mesh_data = eval_obj.to_mesh()
+        except RuntimeError as exc:
+            _warn_shape_fit_mesh_once(obj, "read evaluated", exc)
+            continue
+
         try:
             world_matrix = eval_obj.matrix_world
             for vert in mesh_data.vertices:
@@ -586,7 +735,8 @@ def _get_mesh_vertices_world(meshes, depsgraph, center_world=None, max_distance=
                     continue
                 vertices_world.append(vert_world)
         finally:
-            eval_obj.to_mesh_clear()
+            if mesh_data is not None:
+                eval_obj.to_mesh_clear()
 
     return vertices_world
 
@@ -595,11 +745,21 @@ def _get_evaluated_mesh_info(obj, depsgraph):
     if obj is None or obj.type != "MESH":
         return None
 
-    eval_obj = obj.evaluated_get(depsgraph)
+    try:
+        eval_obj = obj.evaluated_get(depsgraph)
+    except RuntimeError as exc:
+        _warn_shape_fit_mesh_once(obj, "evaluate", exc)
+        return None
+
     if eval_obj.type != "MESH":
         return None
 
-    mesh_data = eval_obj.to_mesh()
+    try:
+        mesh_data = eval_obj.to_mesh()
+    except RuntimeError as exc:
+        _warn_shape_fit_mesh_once(obj, "read evaluated", exc)
+        return None
+
     try:
         if not mesh_data.vertices:
             return {
@@ -633,7 +793,8 @@ def _get_evaluated_mesh_info(obj, depsgraph):
             "vertex_count": len(mesh_data.vertices),
         }
     finally:
-        eval_obj.to_mesh_clear()
+        if mesh_data is not None:
+            eval_obj.to_mesh_clear()
 
 
 def _get_filtered_meshes_for_shape_fit(rig, meshes):
@@ -1323,6 +1484,17 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         default=True,
     )
 
+    use_optional_spine: bpy.props.BoolProperty(
+        name="Optional Spine",
+        description="Use optional Spine mapping fields",
+        default=True,
+    )
+    use_optional_neck: bpy.props.BoolProperty(
+        name="Optional Neck",
+        description="Use optional Neck mapping fields",
+        default=True,
+    )
+
     map_hip: bpy.props.StringProperty(name="Hip", default="Hips")
     map_spine1: bpy.props.StringProperty(name="Spine 1", default="Spine")
     map_spine2: bpy.props.StringProperty(name="Spine 2", default="Spine1")
@@ -1365,19 +1537,25 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         box.prop_search(self, "map_head", context.active_object.data, "bones", text="Head")
 
         box.separator()
-        box.label(text="Optional Spine")
-        box.prop(self, "map_spine1")
-        box.prop(self, "map_spine2")
-        box.prop(self, "map_spine3")
-        box.prop(self, "map_spine4")
-        box.prop(self, "map_spine5")
-        box.prop(self, "map_spine6")
+        row = box.row()
+        row.label(text="Optional Spine")
+        row.prop(self, "use_optional_spine", text="")
+        if self.use_optional_spine:
+            box.prop_search(self, "map_spine1", context.active_object.data, "bones", text="Spine 1")
+            box.prop_search(self, "map_spine2", context.active_object.data, "bones", text="Spine 2")
+            box.prop_search(self, "map_spine3", context.active_object.data, "bones", text="Spine 3")
+            box.prop_search(self, "map_spine4", context.active_object.data, "bones", text="Spine 4")
+            box.prop_search(self, "map_spine5", context.active_object.data, "bones", text="Spine 5")
+            box.prop_search(self, "map_spine6", context.active_object.data, "bones", text="Spine 6")
 
         box.separator()
-        box.label(text="Optional Neck")
-        box.prop(self, "map_neck1")
-        box.prop(self, "map_neck2")
-        box.prop(self, "map_neck3")
+        row = box.row()
+        row.label(text="Optional Neck")
+        row.prop(self, "use_optional_neck", text="")
+        if self.use_optional_neck:
+            box.prop_search(self, "map_neck1", context.active_object.data, "bones", text="Neck 1")
+            box.prop_search(self, "map_neck2", context.active_object.data, "bones", text="Neck 2")
+            box.prop_search(self, "map_neck3", context.active_object.data, "bones", text="Neck 3")
 
     def execute(self, context):
         debug = False
@@ -1397,8 +1575,14 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             self.map_neck3,
         ]
 
-        spine_names = [name for name in spine_names if name]
-        neck_names = [name for name in neck_names if name]
+        spine_names = [
+            name for name in spine_names
+            if self.use_optional_spine and name
+        ]
+        neck_names = [
+            name for name in neck_names
+            if self.use_optional_neck and name
+        ]
 
         self.report(
             {"INFO"},
@@ -1417,8 +1601,35 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         chest_bone = arm.data.bones.get(self.map_chest)
         head_bone = arm.data.bones.get(self.map_head)
 
-        spine_bones = [arm.data.bones.get(name) for name in spine_names]
-        neck_bones = [arm.data.bones.get(name) for name in neck_names]
+        spine_bones = [
+            arm.data.bones.get(name)
+            for name in spine_names
+            if arm.data.bones.get(name) is not None
+        ]
+        neck_bones = [
+            arm.data.bones.get(name)
+            for name in neck_names
+            if arm.data.bones.get(name) is not None
+        ]
+        hip_bone_name = _kai_safe_bone_name(hip_bone)
+        chest_bone_name = _kai_safe_bone_name(chest_bone)
+        head_bone_name = _kai_safe_bone_name(head_bone)
+        spine_bone_names = [
+            name for name in (_kai_safe_bone_name(bone) for bone in spine_bones)
+            if name
+        ]
+        neck_bone_names = [
+            name for name in (_kai_safe_bone_name(bone) for bone in neck_bones)
+            if name
+        ]
+        missing_optional_spines = [
+            name for name in spine_names
+            if arm.data.bones.get(name) is None
+        ]
+        missing_optional_necks = [
+            name for name in neck_names
+            if arm.data.bones.get(name) is None
+        ]
 
         missing_bones = []
 
@@ -1428,9 +1639,12 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             missing_bones.append(self.map_chest)
         if head_bone is None:
             missing_bones.append(self.map_head)
-
-        missing_bones += [name for name, bone in zip(spine_names, spine_bones) if bone is None]
-        missing_bones += [name for name, bone in zip(neck_names, neck_bones) if bone is None]
+        if hip_bone is not None and not hip_bone_name:
+            missing_bones.append(self.map_hip)
+        if chest_bone is not None and not chest_bone_name:
+            missing_bones.append(self.map_chest)
+        if head_bone is not None and not head_bone_name:
+            missing_bones.append(self.map_head)
 
         if missing_bones:
             self.report(
@@ -1439,22 +1653,48 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             )
             return {"CANCELLED"}
 
+        if missing_optional_spines or missing_optional_necks:
+            self.report(
+                {"WARNING"},
+                (
+                    "[Kai] Ignored missing optional bones: "
+                    + ", ".join(missing_optional_spines + missing_optional_necks)
+                )
+            )
+
         self.report(
             {"INFO"},
-            "[Kai] Spine bones OK: " + ", ".join([bone.name for bone in spine_bones])
+            "[Kai] Spine bones OK: " + ", ".join(spine_bone_names)
         )
 
         self.report(
             {"INFO"},
-            "[Kai] Neck bones OK: " + ", ".join([bone.name for bone in neck_bones])
+            "[Kai] Neck bones OK: " + ", ".join(neck_bone_names)
+        )
+
+        self.report(
+            {"INFO"},
+            (
+                "[Kai] Validated mapping names: "
+                f"Hip={hip_bone_name} | "
+                f"Spines={spine_bone_names} | "
+                f"Chest={chest_bone_name} | "
+                f"Necks={neck_bone_names} | "
+                f"Head={head_bone_name}"
+            )
         )
 
         reference_mapping = {
             "hip": hip_bone,
+            "hip_name": hip_bone_name,
             "spines": spine_bones,
+            "spine_names": spine_bone_names,
             "chest": chest_bone,
+            "chest_name": chest_bone_name,
             "necks": neck_bones,
+            "neck_names": neck_bone_names,
             "head": head_bone,
+            "head_name": head_bone_name,
         }
         self.reference_mapping = reference_mapping
         self.report(
@@ -1957,7 +2197,8 @@ def _build_constraints_for_rig(rig):
         c_master_pb.rotation_mode = "XYZ"
         set_bone_color_group(rig, c_master_pb, "master")
 
-    hips_name = get_src_bone_name(spine_names["pelvis"])
+    kai_raw_hip_name = rig.data.get("kai_hip_name", spine_names["pelvis"])
+    hips_name = _kai_prefixed_source_bone_name(kai_raw_hip_name, detected_prefix)
     kai_spine_names = rig.data.get("kai_spine_names", "")
     kai_chest_name = rig.data.get("kai_chest_name", "")
 
@@ -1967,11 +2208,25 @@ def _build_constraints_for_rig(rig):
         f"Chest={kai_chest_name}"
     )
 
-    kai_source_spine_names = [
-        name for name in kai_spine_names.split(",")
-        if name
-    ]
-    kai_source_chest_name = kai_chest_name
+    if "kai_spine_names" in rig.data.keys():
+        kai_raw_spine_names = [
+            name for name in kai_spine_names.split(",")
+            if name
+        ]
+    else:
+        kai_raw_spine_names = [
+            spine_names["spine1"],
+            spine_names["spine2"],
+        ]
+    kai_raw_chest_name = kai_chest_name or spine_names["spine3"]
+
+    kai_source_spine_names, kai_source_chest_name, _, _ = _kai_resolve_spine_sources(
+        [
+            _kai_prefixed_source_bone_name(name, detected_prefix)
+            for name in kai_raw_spine_names
+        ],
+        _kai_prefixed_source_bone_name(kai_raw_chest_name, detected_prefix),
+    )
 
     print(
         "[Kai] Parsed Kai mapping: "
@@ -1982,18 +2237,20 @@ def _build_constraints_for_rig(rig):
     c_hips_name = c_prefix + spine_rig_names["pelvis"]
     hips_free_h_name = spine_rig_names["hips_free_helper"]
     c_hips_free_name = c_prefix + spine_rig_names["hips_free"]
-    c_spine_name = c_prefix + spine_rig_names["spine1"]
-    c_spine1_name = c_prefix + spine_rig_names["spine2"]
-    # c_spine2_name = c_prefix + spine_rig_names["spine3"]
-    c_spine2_name = c_prefix + kai_source_chest_name
+    spine_control_pairs = _kai_build_spine_control_pairs(
+        kai_raw_spine_names,
+        kai_raw_chest_name,
+        detected_prefix,
+    )
 
     mixamo_spine_pb = get_pose_bone(hips_name)
     c_hips_pb = get_pose_bone(c_hips_name)
     hips_free_h_pb = get_pose_bone(hips_free_h_name)
     c_hips_free_pb = get_pose_bone(c_hips_free_name)
-    c_spine_pb = get_pose_bone(c_spine_name)
-    c_spine1_pb = get_pose_bone(c_spine1_name)
-    c_spine2_pb = get_pose_bone(c_spine2_name)
+    spine_control_pbones = [
+        get_pose_bone(pair["control_name"])
+        for pair in spine_control_pairs
+    ]
 
     if mixamo_spine_pb and hips_free_h_pb:
         cns = mixamo_spine_pb.constraints.get("Copy Transforms")
@@ -2003,37 +2260,27 @@ def _build_constraints_for_rig(rig):
         cns.target = rig
         cns.subtarget = hips_free_h_name
 
-    if c_hips_pb and c_hips_free_pb and c_spine_pb and c_spine1_pb and c_spine2_pb:
-        for pb in [c_hips_pb, c_hips_free_pb, c_spine_pb, c_spine1_pb, c_spine2_pb]:
+    if c_hips_pb and c_hips_free_pb and all(spine_control_pbones):
+        for pb in [c_hips_pb, c_hips_free_pb] + spine_control_pbones:
             pb.bone["mixamo_ctrl"] = 1
 
         set_bone_custom_shape(c_hips_pb, "cs_square_2")
         set_bone_custom_shape(c_hips_free_pb, "cs_hips")
-        set_bone_custom_shape(c_spine_pb, "cs_circle")
-        set_bone_custom_shape(c_spine1_pb, "cs_circle")
-        set_bone_custom_shape(c_spine2_pb, "cs_circle")
+        for pb in spine_control_pbones:
+            set_bone_custom_shape(pb, "cs_circle")
 
         c_hips_pb.rotation_mode = "XYZ"
         c_hips_free_pb.rotation_mode = "XYZ"
-        c_spine_pb.rotation_mode = "XYZ"
-        c_spine1_pb.rotation_mode = "XYZ"
-        c_spine2_pb.rotation_mode = "XYZ"
+        for pb in spine_control_pbones:
+            pb.rotation_mode = "XYZ"
 
         set_bone_color_group(rig, c_hips_pb, "root_master")
         set_bone_color_group(rig, c_hips_free_pb, "body_mid")
-        set_bone_color_group(rig, c_spine_pb, "body_mid")
-        set_bone_color_group(rig, c_spine1_pb, "body_mid")
-        set_bone_color_group(rig, c_spine2_pb, "body_mid")
+        for pb in spine_control_pbones:
+            set_bone_color_group(rig, pb, "body_mid")
 
-        spine_bone_matches = {
-            kai_source_spine_names[0]: c_spine_name,
-            kai_source_spine_names[1]: c_spine1_name,
-            kai_source_chest_name: c_spine2_name,
-        }
-
-        for mixamo_bname, c_name in spine_bone_matches.items():
-            mixamo_spine_pb = get_pose_bone(mixamo_bname)
-
+        for pair in spine_control_pairs:
+            mixamo_spine_pb = get_pose_bone(pair["source_name"])
             if mixamo_spine_pb is None:
                 continue
 
@@ -2044,37 +2291,50 @@ def _build_constraints_for_rig(rig):
                 cns.name = "Copy Transforms"
 
             cns.target = rig
-            cns.subtarget = c_name
+            cns.subtarget = pair["control_name"]
 
-    neck_name = get_src_bone_name(head_names["neck"])
-    head_name = get_src_bone_name(head_names["head"])
-    c_neck_name = c_prefix + head_rig_names["neck"]
+    kai_neck_names = rig.data.get("kai_neck_names", "")
+    kai_head_name = rig.data.get("kai_head_name", "")
+    kai_source_neck_names = [
+        _kai_prefixed_source_bone_name(name, detected_prefix)
+        for name in kai_neck_names.split(",")
+        if name
+    ]
+    kai_raw_head_name = kai_head_name or head_names["head"]
+
+    neck_control_pairs = _kai_build_spine_control_pairs(
+        kai_source_neck_names,
+        None,
+    )
+    head_name = _kai_prefixed_source_bone_name(kai_raw_head_name, detected_prefix)
     c_head_name = c_prefix + head_rig_names["head"]
 
-    neck_pb = get_pose_bone(neck_name)
     head_pb = get_pose_bone(head_name)
-    c_neck_pb = get_pose_bone(c_neck_name)
     c_head_pb = get_pose_bone(c_head_name)
 
-    if c_neck_pb and c_head_pb:
+    for pair in neck_control_pairs:
+        neck_pb = get_pose_bone(pair["source_name"])
+        c_neck_pb = get_pose_bone(pair["control_name"])
+        if c_neck_pb is None:
+            continue
+
         c_neck_pb.bone["mixamo_ctrl"] = 1
-        c_head_pb.bone["mixamo_ctrl"] = 1
-
         set_bone_custom_shape(c_neck_pb, "cs_neck")
-        set_bone_custom_shape(c_head_pb, "cs_head")
+        c_neck_pb.rotation_mode = "XYZ"
+        set_bone_color_group(rig, c_neck_pb, "neck")
 
+        if neck_pb is not None:
+            add_copy_transf(neck_pb, rig, pair["control_name"])
+
+    if c_head_pb:
+        c_head_pb.bone["mixamo_ctrl"] = 1
+        set_bone_custom_shape(c_head_pb, "cs_head")
         c_head_pb.custom_shape_scale_xyz[0] = 1.9
         c_head_pb.custom_shape_scale_xyz[1] = 1.9
         c_head_pb.custom_shape_scale_xyz[2] = 1.9
-
-        c_neck_pb.rotation_mode = "XYZ"
         c_head_pb.rotation_mode = "XYZ"
-
-        set_bone_color_group(rig, c_neck_pb, "neck")
         set_bone_color_group(rig, c_head_pb, "head")
 
-    if neck_pb and c_neck_pb:
-        add_copy_transf(neck_pb, rig, c_neck_name)
     if head_pb and c_head_pb:
         add_copy_transf(head_pb, rig, c_head_name)
 
@@ -2936,31 +3196,33 @@ def _make_rig(self, context):
     reference_mapping = self.reference_mapping
 
     reference_chest = reference_mapping["chest"]
-    reference_last_spine = (
-        reference_mapping["spines"][-1]
-        if reference_mapping["spines"]
-        else reference_chest
+    reference_spine_names = reference_mapping.get("spine_names", [])
+    reference_chest_name = reference_mapping.get("chest_name", "")
+    reference_last_spine_name = (
+        reference_spine_names[-1]
+        if reference_spine_names
+        else reference_chest_name
     )
 
     self.report(
         {"INFO"},
         (
             "[Kai] _make_rig spine chain: "
-            f"Spines={[b.name for b in reference_mapping['spines']]} | "
-            f"Chest={reference_chest.name} | "
-            f"LastSpine={reference_last_spine.name}"
+            f"Spines={reference_spine_names} | "
+            f"Chest={reference_chest_name} | "
+            f"LastSpine={reference_last_spine_name}"
         )
     )
 
     # kai_chest_ctrl_name = c_prefix + spine_rig_names["spine3"]
-    kai_chest_ctrl_name = c_prefix + reference_chest.name
+    kai_chest_ctrl_name = c_prefix + reference_chest_name
     kai_parent_spine_name = kai_chest_ctrl_name
 
     self.report(
         {"INFO"},
         (
             "[Kai] Chest control target: "
-            f"ReferenceChest={reference_chest.name} | "
+            f"ReferenceChest={reference_chest_name} | "
             f"CtrlChest={kai_chest_ctrl_name}"
         )
 )
@@ -3069,8 +3331,12 @@ def _make_rig(self, context):
     # Spine bones
     print("    Creating Spine bones...")
 
-    kai_source_spine_names = [bone.name for bone in reference_mapping["spines"]]
-    kai_source_chest_name = reference_chest.name
+    kai_source_spine_names, kai_source_chest_name, _, _ = (
+        _kai_resolve_spine_sources(
+            reference_mapping.get("spine_names", []),
+            reference_chest_name,
+        )
+    )
 
     self.report(
         {"INFO"},
@@ -3081,18 +3347,24 @@ def _make_rig(self, context):
         )
     )
 
-    hips_name = get_src_bone_name(spine_names["pelvis"])
-    spine_name = get_src_bone_name(kai_source_spine_names[0])
-    spine1_name = get_src_bone_name(kai_source_spine_names[1])
-    spine2_name = get_src_bone_name(kai_source_chest_name)
+    hips_name = _kai_prefixed_source_bone_name(
+        reference_mapping.get("hip_name", ""),
+        detected_prefix,
+    )
+    spine_control_pairs = _kai_build_spine_control_pairs(
+        kai_source_spine_names,
+        kai_source_chest_name,
+        detected_prefix,
+    )
 
     hips = get_edit_bone(hips_name)
-    spine = get_edit_bone(spine_name)
-    spine1 = get_edit_bone(spine1_name)
-    spine2 = get_edit_bone(spine2_name)
+    spine_source_bones = [
+        (pair, get_edit_bone(pair["source_name"]))
+        for pair in spine_control_pairs
+    ]
 
-    if hips and spine and spine1 and spine2:
-        for b in [hips, spine, spine1, spine2]:
+    if hips and spine_source_bones and all(bone for _, bone in spine_source_bones):
+        for b in [hips] + [bone for _, bone in spine_source_bones]:
             set_bone_collection(rig, b, coll_mix_name)
 
         # Hips Ctrl
@@ -3123,27 +3395,22 @@ def _make_rig(self, context):
         hips_free_helper.parent = c_hips_free
         set_bone_collection(rig, hips_free_helper, coll_intern_name)
 
-        # Spine Ctrl
-        c_spine_name = c_prefix + spine_rig_names["spine1"]
-        c_spine = create_edit_bone(c_spine_name)
-        copy_bone_transforms(spine, c_spine)
-        c_spine.parent = c_hips
-        set_bone_collection(rig, c_spine, coll_ctrl_name)
+        spine_controls = []
+        parent_ctrl = c_hips
+        for pair, source_bone in spine_source_bones:
+            c_spine = create_edit_bone(pair["control_name"])
+            copy_bone_transforms(source_bone, c_spine)
+            c_spine.parent = parent_ctrl
+            set_bone_collection(rig, c_spine, coll_ctrl_name)
+            spine_controls.append(
+                {
+                    "source_name": pair["source_name"],
+                    "control_name": pair["control_name"],
+                }
+            )
+            parent_ctrl = c_spine
 
-        # Spine1 Ctrl
-        c_spine1_name = c_prefix + spine_rig_names["spine2"]
-        c_spine1 = create_edit_bone(c_spine1_name)
-        copy_bone_transforms(spine1, c_spine1)
-        c_spine1.parent = c_spine
-        set_bone_collection(rig, c_spine1, coll_ctrl_name)
-
-        # Spine2 Ctrl
-        # c_spine2_name = c_prefix + spine_rig_names["spine3"]
-        c_spine2_name = kai_chest_ctrl_name
-        c_spine2 = create_edit_bone(c_spine2_name)
-        copy_bone_transforms(spine2, c_spine2)
-        c_spine2.parent = c_spine1
-        set_bone_collection(rig, c_spine2, coll_ctrl_name)
+        kai_parent_spine_name = spine_controls[-1]["control_name"]
 
         # Store data for pose mode
         edit_data["spine"] = {
@@ -3152,12 +3419,8 @@ def _make_rig(self, context):
             "c_hips_name": c_hips_name,
             "hips_free_h_name": hips_free_h_name,
             "c_hips_free_name": c_hips_free_name,
-            "c_spine_name": c_spine_name,
-            "c_spine1_name": c_spine1_name,
-            "c_spine2_name": c_spine2_name,
-            "spine_name": spine_name,
-            "spine1_name": spine1_name,
-            "spine2_name": spine2_name,
+            "spine_controls": spine_controls,
+            "last_spine_control_name": kai_parent_spine_name,
         }
     else:
         print("    Spine bones are missing, skip spine")
@@ -3165,42 +3428,58 @@ def _make_rig(self, context):
 
     # Head bones
     print("    Creating Head bones...")
-    neck_name = get_src_bone_name(head_names["neck"])
-    head_name = get_src_bone_name(head_names["head"])
+    kai_source_neck_names = reference_mapping.get("neck_names", [])
+    kai_source_head_name = reference_mapping.get("head_name", "")
+    neck_control_pairs = _kai_build_spine_control_pairs(
+        kai_source_neck_names,
+        None,
+        detected_prefix,
+    )
+    head_name = _kai_prefixed_source_bone_name(kai_source_head_name, detected_prefix)
     head_end_name = get_src_bone_name(head_names["head_end"])
 
-    neck = get_edit_bone(neck_name)
+    neck_source_bones = [
+        (pair, get_edit_bone(pair["source_name"]))
+        for pair in neck_control_pairs
+    ]
     head = get_edit_bone(head_name)
     head_end = get_edit_bone(head_end_name)
 
-    if neck and head:
-        for b in [neck, head, head_end]:
-            set_bone_collection(rig, b, coll_mix_name)
+    if head and all(bone for _, bone in neck_source_bones):
+        for b in [bone for _, bone in neck_source_bones] + [head, head_end]:
+            if b is not None:
+                set_bone_collection(rig, b, coll_mix_name)
 
-        # Neck Ctrl
-        c_neck_name = c_prefix + head_rig_names["neck"]
-        c_neck = create_edit_bone(c_neck_name)
-        copy_bone_transforms(neck, c_neck)
-        # c_neck.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
-        c_neck.parent = get_edit_bone(kai_parent_spine_name)
-        set_bone_collection(rig, c_neck, coll_ctrl_name)
+        neck_controls = []
+        parent_ctrl = get_edit_bone(kai_parent_spine_name)
+        for pair, source_bone in neck_source_bones:
+            c_neck = create_edit_bone(pair["control_name"])
+            copy_bone_transforms(source_bone, c_neck)
+            c_neck.parent = parent_ctrl
+            set_bone_collection(rig, c_neck, coll_ctrl_name)
+            neck_controls.append(
+                {
+                    "source_name": pair["source_name"],
+                    "control_name": pair["control_name"],
+                }
+            )
+            parent_ctrl = c_neck
 
         # Head Ctrl
         c_head_name = c_prefix + head_rig_names["head"]
         c_head = create_edit_bone(c_head_name)
         copy_bone_transforms(head, c_head)
-        c_head.parent = c_neck
+        c_head.parent = parent_ctrl
         set_bone_collection(rig, c_head, coll_ctrl_name)
 
         edit_data["head"] = {
             "exists": True,
-            "neck_name": neck_name,
             "head_name": head_name,
-            "c_neck_name": c_neck_name,
+            "neck_controls": neck_controls,
             "c_head_name": c_head_name,
         }
     else:
-        print("    Head or neck bones are missing, skip head")
+        print("    Head bone is missing, skip head")
         edit_data["head"]["exists"] = False
 
     # Leg bones for both sides
@@ -3807,34 +4086,37 @@ def _make_rig(self, context):
         c_hips_pb = get_pose_bone(spine_data["c_hips_name"])
         get_pose_bone(spine_data["hips_free_h_name"])
         c_hips_free_pb = get_pose_bone(spine_data["c_hips_free_name"])
-        c_spine_pb = get_pose_bone(spine_data["c_spine_name"])
-        c_spine1_pb = get_pose_bone(spine_data["c_spine1_name"])
-        c_spine2_pb = get_pose_bone(spine_data["c_spine2_name"])
+        spine_control_pbones = [
+            get_pose_bone(ctrl_data["control_name"])
+            for ctrl_data in spine_data.get("spine_controls", [])
+        ]
 
         # tag controller bones
-        for pb in [c_hips_pb, c_hips_free_pb, c_spine_pb, c_spine1_pb, c_spine2_pb]:
+        for pb in [c_hips_pb, c_hips_free_pb] + spine_control_pbones:
+            if pb is None:
+                continue
             pb.bone["mixamo_ctrl"] = 1
 
         # set custom shapes
         set_bone_custom_shape(c_hips_pb, "cs_square_2")
         set_bone_custom_shape(c_hips_free_pb, "cs_hips")
-        set_bone_custom_shape(c_spine_pb, "cs_circle")
-        set_bone_custom_shape(c_spine1_pb, "cs_circle")
-        set_bone_custom_shape(c_spine2_pb, "cs_circle")
+        for pb in spine_control_pbones:
+            if pb is not None:
+                set_bone_custom_shape(pb, "cs_circle")
 
         # set rotation mode
         c_hips_pb.rotation_mode = "XYZ"
         c_hips_free_pb.rotation_mode = "XYZ"
-        c_spine_pb.rotation_mode = "XYZ"
-        c_spine1_pb.rotation_mode = "XYZ"
-        c_spine2_pb.rotation_mode = "XYZ"
+        for pb in spine_control_pbones:
+            if pb is not None:
+                pb.rotation_mode = "XYZ"
 
         # set color group
         set_bone_color_group(rig, c_hips_pb, "root_master")
         set_bone_color_group(rig, c_hips_free_pb, "body_mid")
-        set_bone_color_group(rig, c_spine_pb, "body_mid")
-        set_bone_color_group(rig, c_spine1_pb, "body_mid")
-        set_bone_color_group(rig, c_spine2_pb, "body_mid")
+        for pb in spine_control_pbones:
+            if pb is not None:
+                set_bone_color_group(rig, pb, "body_mid")
 
         # constraints
         mixamo_spine_pb = get_pose_bone(spine_data["hips_name"])
@@ -3845,20 +4127,16 @@ def _make_rig(self, context):
         cns.target = rig
         cns.subtarget = spine_data["hips_free_h_name"]
 
-        # Spine
-        spine_bone_matches = {
-            spine_data["spine_name"]: spine_data["c_spine_name"],
-            spine_data["spine1_name"]: spine_data["c_spine1_name"],
-            spine_data["spine2_name"]: spine_data["c_spine2_name"],
-        }
-
         self.report(
             {"INFO"},
             f"[Kai] Pose spine data = {spine_data}"
         )
 
-        for mixamo_bname, c_name in spine_bone_matches.items():
-            mixamo_spine_pb = get_pose_bone(mixamo_bname)
+        for ctrl_data in spine_data.get("spine_controls", []):
+            mixamo_spine_pb = get_pose_bone(ctrl_data["source_name"])
+
+            if mixamo_spine_pb is None:
+                continue
 
             cns = mixamo_spine_pb.constraints.get("Copy Transforms")
             if cns is None:
@@ -3866,43 +4144,64 @@ def _make_rig(self, context):
                 cns.name = "Copy Transforms"
 
             cns.target = rig
-            cns.subtarget = c_name
+            cns.subtarget = ctrl_data["control_name"]
 
     # Head pose setup
     if edit_data["head"].get("exists"):
         print("    Setting up Head pose...")
         head_data = edit_data["head"]
 
-        c_neck_pb = get_pose_bone(head_data["c_neck_name"])
+        neck_control_pbones = [
+            get_pose_bone(ctrl_data["control_name"])
+            for ctrl_data in head_data.get("neck_controls", [])
+        ]
         c_head_pb = get_pose_bone(head_data["c_head_name"])
 
         # tag controller bones
-        c_neck_pb.bone["mixamo_ctrl"] = 1
-        c_head_pb.bone["mixamo_ctrl"] = 1
+        for pb in neck_control_pbones:
+            if pb is not None:
+                pb.bone["mixamo_ctrl"] = 1
+        if c_head_pb is not None:
+            c_head_pb.bone["mixamo_ctrl"] = 1
 
         # set custom shapes
-        set_bone_custom_shape(c_neck_pb, "cs_neck")
-        set_bone_custom_shape(c_head_pb, "cs_head")
+        for pb in neck_control_pbones:
+            if pb is not None:
+                set_bone_custom_shape(pb, "cs_neck")
+        if c_head_pb is not None:
+            set_bone_custom_shape(c_head_pb, "cs_head")
 
         # set custom shape scale for head controller
-        c_head_pb.custom_shape_scale_xyz[0] = 1.9
-        c_head_pb.custom_shape_scale_xyz[1] = 1.9
-        c_head_pb.custom_shape_scale_xyz[2] = 1.9
+        if c_head_pb is not None:
+            c_head_pb.custom_shape_scale_xyz[0] = 1.9
+            c_head_pb.custom_shape_scale_xyz[1] = 1.9
+            c_head_pb.custom_shape_scale_xyz[2] = 1.9
 
         # set rotation mode
-        c_neck_pb.rotation_mode = "XYZ"
-        c_head_pb.rotation_mode = "XYZ"
+        for pb in neck_control_pbones:
+            if pb is not None:
+                pb.rotation_mode = "XYZ"
+        if c_head_pb is not None:
+            c_head_pb.rotation_mode = "XYZ"
 
         # set color group
-        set_bone_color_group(rig, c_neck_pb, "neck")
-        set_bone_color_group(rig, c_head_pb, "head")
+        for pb in neck_control_pbones:
+            if pb is not None:
+                set_bone_color_group(rig, pb, "neck")
+        if c_head_pb is not None:
+            set_bone_color_group(rig, c_head_pb, "head")
 
         # constraints
-        neck_pb = get_pose_bone(head_data["neck_name"])
+        for ctrl_data in head_data.get("neck_controls", []):
+            neck_pb = get_pose_bone(ctrl_data["source_name"])
+            c_neck_pb = get_pose_bone(ctrl_data["control_name"])
+            if neck_pb is not None and c_neck_pb is not None:
+                add_copy_transf(neck_pb, rig, ctrl_data["control_name"])
+
         head_pb = get_pose_bone(head_data["head_name"])
 
-        add_copy_transf(neck_pb, rig, head_data["c_neck_name"])
-        add_copy_transf(head_pb, rig, head_data["c_head_name"])
+        if head_pb is not None and c_head_pb is not None:
+            add_copy_transf(head_pb, rig, head_data["c_head_name"])
 
     # Leg pose setup for both sides
     for side in ["left", "right"]:
@@ -4688,6 +4987,50 @@ def _make_rig(self, context):
             if pose_bone:
                 pose_bone.custom_shape_wire_width = 3.0
 
+    # Store Kai mapping before fitting custom shapes so variable controller names
+    # such as Ctrl_Chest can be discovered by the shape fitting pass.
+    safe_spine_names = [
+        name for name in reference_mapping.get("spine_names", [])
+        if name
+    ]
+    safe_neck_names = [
+        name for name in reference_mapping.get("neck_names", [])
+        if name
+    ]
+    safe_hip_name = reference_mapping.get("hip_name", "")
+    safe_chest_name = reference_mapping.get("chest_name", "")
+    safe_head_name = reference_mapping.get("head_name", "")
+
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] Saving validated mapping names: "
+            f"Hip={safe_hip_name} | "
+            f"Spines={safe_spine_names} | "
+            f"Chest={safe_chest_name} | "
+            f"Necks={safe_neck_names} | "
+            f"Head={safe_head_name}"
+        )
+    )
+
+    rig.data["kai_spine_names"] = ",".join(safe_spine_names)
+    rig.data["kai_chest_name"] = safe_chest_name
+    rig.data["kai_hip_name"] = safe_hip_name
+    rig.data["kai_neck_names"] = ",".join(safe_neck_names)
+    rig.data["kai_head_name"] = safe_head_name
+
+    self.report(
+        {"INFO"},
+        (
+            "[Kai] Saved Kai mapping to rig.data: "
+            f"Hip={rig.data['kai_hip_name']} | "
+            f"Spines={rig.data['kai_spine_names']} | "
+            f"Chest={rig.data['kai_chest_name']} | "
+            f"Necks={rig.data['kai_neck_names']} | "
+            f"Head={rig.data['kai_head_name']}"
+        )
+    )
+
     print("  Fitting hand and head control shapes...")
     _fit_controller_custom_shapes(rig)
 
@@ -4695,18 +5038,6 @@ def _make_rig(self, context):
     rig.show_in_front = False
 
     # tag the armature with a custom prop to specify the control rig is built
-    rig.data["kai_spine_names"] = ",".join(kai_source_spine_names)
-    rig.data["kai_chest_name"] = kai_source_chest_name
-
-    self.report(
-        {"INFO"},
-        (
-            "[Kai] Saved Kai mapping to rig.data: "
-            f"Spines={rig.data['kai_spine_names']} | "
-            f"Chest={rig.data['kai_chest_name']}"
-        )
-    )
-
     rig.data["mr_control_rig"] = True
 
     print("  Control rig build complete!")
@@ -5137,12 +5468,39 @@ def _import_anim(src_arm, tar_arm, import_only=False):
     # Set bones mapping for retargetting
     bones_map = {}
 
-    bones_map[get_src_bone_name("Hips")] = c_prefix + "Hips"
-    bones_map[get_src_bone_name("Spine")] = c_prefix + "Spine"
-    bones_map[get_src_bone_name("Spine1")] = c_prefix + "Spine1"
-    bones_map[get_src_bone_name("Spine2")] = c_prefix + "Spine2"
-    bones_map[get_src_bone_name("Neck")] = c_prefix + "Neck"
-    bones_map[get_src_bone_name("Head")] = c_prefix + "Head"
+    kai_mapping_names = _kai_get_mapping_names_from_rig_data(tar_arm)
+    _kai_add_mapping_if_target_exists(
+        bones_map,
+        get_src_bone_name(kai_mapping_names["hip"]),
+        tar_arm,
+        c_prefix + spine_rig_names["pelvis"],
+    )
+    for pair in _kai_build_spine_control_pairs(
+        kai_mapping_names["spines"],
+        kai_mapping_names["chest"],
+    ):
+        _kai_add_mapping_if_target_exists(
+            bones_map,
+            get_src_bone_name(pair["raw_name"]),
+            tar_arm,
+            pair["control_name"],
+        )
+    for pair in _kai_build_spine_control_pairs(
+        kai_mapping_names["necks"],
+        None,
+    ):
+        _kai_add_mapping_if_target_exists(
+            bones_map,
+            get_src_bone_name(pair["raw_name"]),
+            tar_arm,
+            pair["control_name"],
+        )
+    _kai_add_mapping_if_target_exists(
+        bones_map,
+        get_src_bone_name(kai_mapping_names["head"]),
+        tar_arm,
+        c_prefix + head_rig_names["head"],
+    )
     if _get_armature_pose_bone(tar_arm, c_prefix + "Shoulder_Left") is not None:
         bones_map[get_src_bone_name("LeftShoulder")] = c_prefix + "Shoulder_Left"
     if _get_armature_pose_bone(tar_arm, c_prefix + "Shoulder_Right") is not None:
@@ -5556,7 +5914,7 @@ def update_mixamo_tab():
 class MixamoRigPanel:
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
-    bl_category = "Mixamo"
+    bl_category = "MixamoKai"
 
 
 class MR_PT_MenuMain(Panel, MixamoRigPanel):  # noqa: N801
