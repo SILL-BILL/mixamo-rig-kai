@@ -71,6 +71,16 @@ from .lib.version import (
 )
 
 
+KAI_REFERENCE_TEMPLATE_ITEMS = tuple(
+    (
+        key,
+        template.get("label", key),
+        template.get("description", ""),
+    )
+    for key, template in KAI_REFERENCE_TEMPLATES.items()
+)
+
+
 # UTILITY FUNCTIONS
 ####################
 def _deselect_all_objects():
@@ -1569,10 +1579,14 @@ class MR_OT_edit_custom_shape(bpy.types.Operator):  # noqa: N801
 class MR_OT_create_reference_skeleton(bpy.types.Operator):  # noqa: N801
     bl_idname = "mr.create_reference_skeleton"
     bl_label = "Create Reference Skeleton"
-    bl_description = "Create the Kai Humanoid Reference skeleton from the bundled template"
+    bl_description = "Create a Kai Reference Skeleton from the selected bundled template"
     bl_options = {"REGISTER", "UNDO"}
 
-    template_key: bpy.props.StringProperty(default=DEFAULT_REFERENCE_TEMPLATE)
+    template_key: bpy.props.EnumProperty(
+        name="Template",
+        items=KAI_REFERENCE_TEMPLATE_ITEMS,
+        default=DEFAULT_REFERENCE_TEMPLATE,
+    )
 
     def execute(self, context):
         template = KAI_REFERENCE_TEMPLATES.get(self.template_key)
@@ -6197,10 +6211,12 @@ class MR_PT_MenuRig(Panel, MixamoRigPanel):  # noqa: N801
         col = layt.column(align=True)
         col.scale_y = 1.3
 
-        col.operator(
+        col.prop(context.scene, "mr_reference_template", text="Template")
+        op = col.operator(
             MR_OT_create_reference_skeleton.bl_idname,
             text="Create Reference Skeleton",
         )
+        op.template_key = context.scene.mr_reference_template
         col.operator(MR_OT_make_rig.bl_idname, text="Create Control Rig")
         col.operator(MR_OT_zero_out.bl_idname, text="Zero Out Rig")
 
@@ -6303,6 +6319,11 @@ def register():
     bpy.types.Scene.mix_target_armature = bpy.props.PointerProperty(
         type=bpy.types.Object
     )
+    bpy.types.Scene.mr_reference_template = bpy.props.EnumProperty(
+        name="Reference Template",
+        items=KAI_REFERENCE_TEMPLATE_ITEMS,
+        default=DEFAULT_REFERENCE_TEMPLATE,
+    )
 
 
 def unregister():
@@ -6313,6 +6334,7 @@ def unregister():
 
     del bpy.types.Scene.mix_source_armature
     del bpy.types.Scene.mix_target_armature
+    del bpy.types.Scene.mr_reference_template
 
 
 if __name__ == "__main__":

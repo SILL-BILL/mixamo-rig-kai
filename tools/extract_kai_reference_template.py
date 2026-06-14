@@ -15,8 +15,9 @@ import bpy
 def _parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
-    parser.add_argument("--template-key", default="humanoid")
-    parser.add_argument("--template-name", default="Kai_Humanoid_Reference")
+    parser.add_argument("--template-key", default="kai_humanoid_basic")
+    parser.add_argument("--template-label", default="Humanoid Basic")
+    parser.add_argument("--template-name", default="Kai_Humanoid_Basic")
     parser.add_argument("--armature", default="")
     args = sys.argv
     if "--" in args:
@@ -67,7 +68,7 @@ def _round_vec(vec):
     return [round(float(value), 10) for value in vec]
 
 
-def _extract_template(armature, template_name):
+def _extract_template(armature, template_label, template_name):
     bpy.ops.object.mode_set(mode="OBJECT")
     bpy.ops.object.select_all(action="DESELECT")
     armature.select_set(True)
@@ -90,6 +91,7 @@ def _extract_template(armature, template_name):
     bpy.ops.object.mode_set(mode="OBJECT")
 
     return {
+        "label": template_label,
         "name": template_name,
         "source_armature": armature.name,
         "bones": bones,
@@ -126,7 +128,7 @@ def _write_template_module(output_path, template_key, template):
 def main():
     args = _parse_args()
     armature = _find_armature(args.armature)
-    template = _extract_template(armature, args.template_name)
+    template = _extract_template(armature, args.template_label, args.template_name)
     _write_template_module(args.output, args.template_key, template)
     print(
         f"Extracted {len(template['bones'])} bones from {armature.name} "
