@@ -38,6 +38,8 @@ if "bpy" in locals():
         importlib.reload(mixamo_rig_prefs)  # noqa: F821
     if "mixamo_rig" in locals():
         importlib.reload(mixamo_rig)  # noqa: F821
+    if "kai_reference_template" in locals():
+        importlib.reload(kai_reference_template)  # noqa: F821
     if "mixamo_rig_functions" in locals():
         importlib.reload(mixamo_rig_functions)  # noqa: F821
     if "utils" in locals():
@@ -46,7 +48,13 @@ if "bpy" in locals():
 
 import bpy  # noqa: F401
 
-from . import mixamo_rig, mixamo_rig_functions, mixamo_rig_prefs, utils  # noqa: F401
+from . import (  # noqa: F401
+    kai_reference_template,
+    mixamo_rig,
+    mixamo_rig_functions,
+    mixamo_rig_prefs,
+    utils,
+)
 
 
 def register():

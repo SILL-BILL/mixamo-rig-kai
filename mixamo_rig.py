@@ -19,6 +19,7 @@ from .definitions.naming import (
     spine_names,
     spine_rig_names,
 )
+from .kai_reference_template import DEFAULT_REFERENCE_TEMPLATE, KAI_REFERENCE_TEMPLATES
 
 # Import lib functions
 from .lib import animation_compat
@@ -92,6 +93,97 @@ def _deselect_all_objects():
                 obj.select_set(False)
             except Exception:
                 pass
+
+
+def _kai_vec_matches(actual, expected, tolerance=0.000001):
+    return all(abs(actual[index] - expected[index]) <= tolerance for index in range(3))
+
+
+def _kai_float_matches(actual, expected, tolerance=0.000001):
+    return abs(actual - expected) <= tolerance
+
+
+def _kai_enter_object_mode_if_needed():
+    active_object = bpy.context.active_object
+    if active_object is not None and active_object.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+
+def _kai_validate_reference_skeleton(armature, template, tolerance=0.000001):
+    if armature is None or armature.type != "ARMATURE":
+        return ["Generated object is not an armature"]
+
+    errors = []
+    expected_bones = template.get("bones", [])
+
+    _kai_enter_object_mode_if_needed()
+    bpy.ops.object.select_all(action="DESELECT")
+    armature.select_set(True)
+    bpy.context.view_layer.objects.active = armature
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    edit_bones = armature.data.edit_bones
+    if len(edit_bones) != len(expected_bones):
+        errors.append(f"Bone count mismatch: {len(edit_bones)} != {len(expected_bones)}")
+
+    for bone_data in expected_bones:
+        bone = edit_bones.get(bone_data["name"])
+        if bone is None:
+            errors.append(f"Missing bone: {bone_data['name']}")
+            continue
+
+        if not _kai_vec_matches(bone.head, bone_data["head"], tolerance):
+            errors.append(f"Head mismatch: {bone.name}")
+        if not _kai_vec_matches(bone.tail, bone_data["tail"], tolerance):
+            errors.append(f"Tail mismatch: {bone.name}")
+        if not _kai_float_matches(bone.roll, bone_data["roll"], tolerance):
+            errors.append(f"Roll mismatch: {bone.name}")
+
+        parent_name = bone.parent.name if bone.parent else None
+        if parent_name != bone_data.get("parent"):
+            errors.append(f"Parent mismatch: {bone.name}")
+        if bool(bone.use_connect) != bool(bone_data.get("connected", False)):
+            errors.append(f"Connected mismatch: {bone.name}")
+
+    _kai_enter_object_mode_if_needed()
+    return errors
+
+
+def _kai_create_reference_skeleton_from_template(template):
+    armature_name = template.get("name", "Kai_Humanoid_Reference")
+    if bpy.data.objects.get(armature_name) is not None:
+        raise RuntimeError(f"Object already exists: {armature_name}")
+
+    arm_data = bpy.data.armatures.new(armature_name)
+    arm_obj = bpy.data.objects.new(armature_name, arm_data)
+    bpy.context.collection.objects.link(arm_obj)
+
+    _kai_enter_object_mode_if_needed()
+    bpy.ops.object.select_all(action="DESELECT")
+    arm_obj.select_set(True)
+    bpy.context.view_layer.objects.active = arm_obj
+    bpy.ops.object.mode_set(mode="EDIT")
+
+    edit_bones = arm_data.edit_bones
+    default_bone = edit_bones.get("Bone")
+    if default_bone is not None:
+        edit_bones.remove(default_bone)
+
+    for bone_data in template.get("bones", []):
+        bone = edit_bones.new(bone_data["name"])
+        bone.head = Vector(bone_data["head"])
+        bone.tail = Vector(bone_data["tail"])
+        bone.roll = bone_data["roll"]
+
+    for bone_data in template.get("bones", []):
+        bone = edit_bones[bone_data["name"]]
+        parent_name = bone_data.get("parent")
+        if parent_name:
+            bone.parent = edit_bones[parent_name]
+        bone.use_connect = bool(bone_data.get("connected", False))
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+    return arm_obj
 
 
 def search_layer_collection(layer_collection, collection_name):
@@ -1474,6 +1566,44 @@ class MR_OT_edit_custom_shape(bpy.types.Operator):  # noqa: N801
         return {"FINISHED"}
 
 
+class MR_OT_create_reference_skeleton(bpy.types.Operator):  # noqa: N801
+    bl_idname = "mr.create_reference_skeleton"
+    bl_label = "Create Reference Skeleton"
+    bl_description = "Create the Kai Humanoid Reference skeleton from the bundled template"
+    bl_options = {"REGISTER", "UNDO"}
+
+    template_key: bpy.props.StringProperty(default=DEFAULT_REFERENCE_TEMPLATE)
+
+    def execute(self, context):
+        template = KAI_REFERENCE_TEMPLATES.get(self.template_key)
+        if template is None:
+            self.report({"ERROR"}, f"Reference template not found: {self.template_key}")
+            return {"CANCELLED"}
+
+        try:
+            armature = _kai_create_reference_skeleton_from_template(template)
+        except RuntimeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+
+        errors = _kai_validate_reference_skeleton(armature, template)
+        if errors:
+            self.report(
+                {"ERROR"},
+                "Reference Skeleton validation failed: " + "; ".join(errors[:3]),
+            )
+            print("[Kai] Reference Skeleton validation errors:")
+            for error in errors:
+                print("  " + error)
+            return {"CANCELLED"}
+
+        self.report(
+            {"INFO"},
+            f"Created {template.get('name', armature.name)} ({len(template.get('bones', []))} bones)",
+        )
+        return {"FINISHED"}
+
+
 class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
     """Generate a control rig from the selected Mixamo skeleton"""
 
@@ -1526,7 +1656,7 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
     map_spine4: bpy.props.StringProperty(name="Spine 4", default="")
     map_spine5: bpy.props.StringProperty(name="Spine 5", default="")
     map_spine6: bpy.props.StringProperty(name="Spine 6", default="")
-    map_chest: bpy.props.StringProperty(name="Chest", default="Spine2")
+    map_chest: bpy.props.StringProperty(name="Chest", default="Chest")
 
     map_neck1: bpy.props.StringProperty(name="Neck 1", default="Neck")
     map_neck2: bpy.props.StringProperty(name="Neck 2", default="")
@@ -6067,6 +6197,10 @@ class MR_PT_MenuRig(Panel, MixamoRigPanel):  # noqa: N801
         col = layt.column(align=True)
         col.scale_y = 1.3
 
+        col.operator(
+            MR_OT_create_reference_skeleton.bl_idname,
+            text="Create Reference Skeleton",
+        )
         col.operator(MR_OT_make_rig.bl_idname, text="Create Control Rig")
         col.operator(MR_OT_zero_out.bl_idname, text="Zero Out Rig")
 
@@ -6141,6 +6275,7 @@ classes = (
     MR_PT_MenuAnim,
     MR_PT_MenuExport,
     MR_PT_MenuUpdate,
+    MR_OT_create_reference_skeleton,
     MR_OT_make_rig,
     MR_OT_zero_out,
     MR_OT_bake_anim,
