@@ -27,9 +27,20 @@ Completed
 * Variable Spine Support
 * Variable Neck Support
 * Reference Skeleton Mapping
+* Optional Shoulder Support
 
 Planned
 
+* Reference Bone Generator
 * Quadruped Support
 * Eye Controller
 * Additional UI Improvements
+
+## Changelog
+
+v0.3.0 Preview
+
+* Optional Shoulder Support
+* Support for shoulder-less humanoid skeletons
+* Updated Reference Mapping workflow
+* Additional Rig Generation improvements

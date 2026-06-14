@@ -278,6 +278,10 @@ def _kai_get_mapping_names_from_rig_data(rig):
             "chest": spine_names["spine3"],
             "necks": [head_names["neck"]],
             "head": head_names["head"],
+            "shoulders": {
+                "Left": "Left" + arm_names["shoulder"],
+                "Right": "Right" + arm_names["shoulder"],
+            },
         }
 
     if "kai_spine_names" in data.keys():
@@ -296,12 +300,27 @@ def _kai_get_mapping_names_from_rig_data(rig):
     else:
         neck_source_names = [head_names["neck"]]
 
+    if (
+        "kai_shoulder_left_name" in data.keys()
+        or "kai_shoulder_right_name" in data.keys()
+    ):
+        shoulder_source_names = {
+            "Left": data.get("kai_shoulder_left_name", ""),
+            "Right": data.get("kai_shoulder_right_name", ""),
+        }
+    else:
+        shoulder_source_names = {
+            "Left": "Left" + arm_names["shoulder"],
+            "Right": "Right" + arm_names["shoulder"],
+        }
+
     return {
         "hip": data.get("kai_hip_name", "") or spine_names["pelvis"],
         "spines": spine_source_names,
         "chest": data.get("kai_chest_name", "") or spine_names["spine3"],
         "necks": neck_source_names,
         "head": data.get("kai_head_name", "") or head_names["head"],
+        "shoulders": shoulder_source_names,
     }
 
 
@@ -1494,6 +1513,11 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         description="Use optional Neck mapping fields",
         default=True,
     )
+    use_optional_shoulder: bpy.props.BoolProperty(
+        name="Optional Shoulder",
+        description="Use optional Shoulder mapping fields",
+        default=True,
+    )
 
     map_hip: bpy.props.StringProperty(name="Hip", default="Hips")
     map_spine1: bpy.props.StringProperty(name="Spine 1", default="Spine")
@@ -1508,6 +1532,14 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
     map_neck2: bpy.props.StringProperty(name="Neck 2", default="")
     map_neck3: bpy.props.StringProperty(name="Neck 3", default="")
     map_head: bpy.props.StringProperty(name="Head", default="Head")
+    map_shoulder_left: bpy.props.StringProperty(
+        name="Shoulder Left",
+        default="LeftShoulder",
+    )
+    map_shoulder_right: bpy.props.StringProperty(
+        name="Shoulder Right",
+        default="RightShoulder",
+    )
 
     animated_armature = None
 
@@ -1557,6 +1589,14 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             box.prop_search(self, "map_neck2", context.active_object.data, "bones", text="Neck 2")
             box.prop_search(self, "map_neck3", context.active_object.data, "bones", text="Neck 3")
 
+        box.separator()
+        row = box.row()
+        row.label(text="Optional Shoulder")
+        row.prop(self, "use_optional_shoulder", text="")
+        if self.use_optional_shoulder:
+            box.prop_search(self, "map_shoulder_left", context.active_object.data, "bones", text="Left")
+            box.prop_search(self, "map_shoulder_right", context.active_object.data, "bones", text="Right")
+
     def execute(self, context):
         debug = False
 
@@ -1574,6 +1614,10 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             self.map_neck2,
             self.map_neck3,
         ]
+        shoulder_names = {
+            "Left": self.map_shoulder_left if self.use_optional_shoulder else "",
+            "Right": self.map_shoulder_right if self.use_optional_shoulder else "",
+        }
 
         spine_names = [
             name for name in spine_names
@@ -1591,7 +1635,8 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
                 f"Spine={', '.join(spine_names)} | "
                 f"Chest={self.map_chest} | "
                 f"Neck={', '.join(neck_names)} | "
-                f"Head={self.map_head}"
+                f"Head={self.map_head} | "
+                f"Shoulders={shoulder_names}"
             )
         )
 
@@ -1600,6 +1645,10 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         hip_bone = arm.data.bones.get(self.map_hip)
         chest_bone = arm.data.bones.get(self.map_chest)
         head_bone = arm.data.bones.get(self.map_head)
+        shoulder_bones = {
+            side: arm.data.bones.get(name) if name else None
+            for side, name in shoulder_names.items()
+        }
 
         spine_bones = [
             arm.data.bones.get(name)
@@ -1630,6 +1679,10 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             name for name in neck_names
             if arm.data.bones.get(name) is None
         ]
+        missing_optional_shoulders = [
+            name for name in shoulder_names.values()
+            if name and arm.data.bones.get(name) is None
+        ]
 
         missing_bones = []
 
@@ -1653,12 +1706,16 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             )
             return {"CANCELLED"}
 
-        if missing_optional_spines or missing_optional_necks:
+        if missing_optional_spines or missing_optional_necks or missing_optional_shoulders:
             self.report(
                 {"WARNING"},
                 (
                     "[Kai] Ignored missing optional bones: "
-                    + ", ".join(missing_optional_spines + missing_optional_necks)
+                    + ", ".join(
+                        missing_optional_spines
+                        + missing_optional_necks
+                        + missing_optional_shoulders
+                    )
                 )
             )
 
@@ -1680,7 +1737,11 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
                 f"Spines={spine_bone_names} | "
                 f"Chest={chest_bone_name} | "
                 f"Necks={neck_bone_names} | "
-                f"Head={head_bone_name}"
+                f"Head={head_bone_name} | "
+                f"Shoulders={{"
+                f"'Left': '{_kai_safe_bone_name(shoulder_bones['Left'])}', "
+                f"'Right': '{_kai_safe_bone_name(shoulder_bones['Right'])}'"
+                f"}}"
             )
         )
 
@@ -1695,6 +1756,10 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
             "neck_names": neck_bone_names,
             "head": head_bone,
             "head_name": head_bone_name,
+            "shoulder_names": {
+                side: _kai_safe_bone_name(bone)
+                for side, bone in shoulder_bones.items()
+            },
         }
         self.reference_mapping = reference_mapping
         self.report(
@@ -2896,7 +2961,16 @@ def _build_constraints_for_rig(rig):
     for side in ["Left", "Right"]:
         _side = "_" + side
 
-        shoulder_name = get_src_bone_name(side + arm_names["shoulder"])
+        kai_shoulder_names = _kai_get_mapping_names_from_rig_data(rig).get(
+            "shoulders",
+            {},
+        )
+        mapped_shoulder_name = kai_shoulder_names.get(side, side + arm_names["shoulder"])
+        shoulder_name = (
+            _kai_prefixed_source_bone_name(mapped_shoulder_name, detected_prefix)
+            if mapped_shoulder_name
+            else None
+        )
         arm_name = get_src_bone_name(side + arm_names["arm"])
         forearm_name = get_src_bone_name(side + arm_names["forearm"])
         hand_name = get_src_bone_name(side + arm_names["hand"])
@@ -2911,7 +2985,8 @@ def _build_constraints_for_rig(rig):
         c_hand_fk_name = c_prefix + arm_rig_names["hand_fk"] + _side
 
         c_shoulder_pb = get_pose_bone(c_shoulder_name)
-        shoulder_pb = get_pose_bone(shoulder_name)
+        shoulder_pb = get_pose_bone(shoulder_name) if shoulder_name else None
+        has_shoulder = c_shoulder_pb is not None and shoulder_pb is not None
         c_arm_fk_pb = get_pose_bone(c_arm_fk_name)
         forearm_ik_pb = get_pose_bone(forearm_ik_name)
         c_pole_ik_pb = get_pose_bone(c_pole_ik_name)
@@ -2923,9 +2998,7 @@ def _build_constraints_for_rig(rig):
         c_hand_fk_pb = get_pose_bone(c_hand_fk_name)
 
         if not (
-            c_shoulder_pb
-            and shoulder_pb
-            and c_arm_fk_pb
+            c_arm_fk_pb
             and forearm_ik_pb
             and c_pole_ik_pb
             and c_hand_ik_pb
@@ -2937,14 +3010,15 @@ def _build_constraints_for_rig(rig):
         ):
             continue
 
-        cns_name = "Copy Location"
-        cns = c_arm_fk_pb.constraints.get(cns_name)
-        if cns is None:
-            cns = c_arm_fk_pb.constraints.new("COPY_LOCATION")
-            cns.name = cns_name
-        cns.head_tail = 1.0
-        cns.target = rig
-        cns.subtarget = c_shoulder_name
+        if has_shoulder:
+            cns_name = "Copy Location"
+            cns = c_arm_fk_pb.constraints.get(cns_name)
+            if cns is None:
+                cns = c_arm_fk_pb.constraints.new("COPY_LOCATION")
+                cns.name = cns_name
+            cns.head_tail = 1.0
+            cns.target = rig
+            cns.subtarget = c_shoulder_name
 
         cns_name = "IK"
         ik_cns = forearm_ik_pb.constraints.get(cns_name)
@@ -2997,7 +3071,7 @@ def _build_constraints_for_rig(rig):
                     continue
                 add_copy_transf(finger_pb, rig, c_finger_pb.name)
 
-        if shoulder_pb and c_shoulder_pb:
+        if has_shoulder:
             add_copy_transf(shoulder_pb, rig, c_shoulder_name)
 
         if "ik_fk_switch" not in c_hand_ik_pb.keys():
@@ -3104,7 +3178,8 @@ def _build_constraints_for_rig(rig):
 
         lock_pbone_transform(c_hand_fk_pb, "location", [0, 1, 2])
 
-        set_bone_custom_shape(c_shoulder_pb, "cs_shoulder_" + side.lower())
+        if has_shoulder:
+            set_bone_custom_shape(c_shoulder_pb, "cs_shoulder_" + side.lower())
         set_bone_custom_shape(c_arm_fk_pb, "cs_arm_fk")
         set_bone_custom_shape(c_forearm_fk_pb, "cs_forearm_fk")
         set_bone_custom_shape(c_pole_ik_pb, "cs_sphere_012")
@@ -3122,13 +3197,14 @@ def _build_constraints_for_rig(rig):
                 set_bone_custom_shape(finger_pb, "cs_circle_025")
 
         c_pbones_list = [
-            c_shoulder_pb,
             c_arm_fk_pb,
             c_forearm_fk_pb,
             c_pole_ik_pb,
             c_hand_fk_pb,
             c_hand_ik_pb,
         ] + c_fingers_pb
+        if has_shoulder:
+            c_pbones_list.insert(0, c_shoulder_pb)
 
         for pb in c_pbones_list:
             pb.bone["mixamo_ctrl"] = 1
@@ -3837,17 +3913,23 @@ def _make_rig(self, context):
     for side in ["Left", "Right"]:
         print(f"    Creating Arm bones for {side}...")
         _side = "_" + side
-        shoulder_name = get_src_bone_name(side + arm_names["shoulder"])
+        mapped_shoulder_name = reference_mapping.get("shoulder_names", {}).get(side, "")
+        shoulder_name = (
+            _kai_prefixed_source_bone_name(mapped_shoulder_name, detected_prefix)
+            if mapped_shoulder_name
+            else None
+        )
         arm_name = get_src_bone_name(side + arm_names["arm"])
         forearm_name = get_src_bone_name(side + arm_names["forearm"])
         hand_name = get_src_bone_name(side + arm_names["hand"])
 
-        shoulder = get_edit_bone(shoulder_name)
+        shoulder = get_edit_bone(shoulder_name) if shoulder_name else None
         arm = get_edit_bone(arm_name)
         forearm = get_edit_bone(forearm_name)
         hand = get_edit_bone(hand_name)
+        has_shoulder = shoulder is not None
 
-        if not shoulder or not arm or not forearm or not hand:
+        if not arm or not forearm or not hand:
             print(f"    Arm bones are missing, skip arm: {side}")
             edit_data[f"arm_{side.lower()}"]["exists"] = False
             continue
@@ -3891,15 +3973,19 @@ def _make_rig(self, context):
 
         # Set Mixamo bones in layer
         for b in [shoulder, arm, forearm, hand] + fingers + finger_leaves:
-            set_bone_collection(rig, b, coll_mix_name)
+            if b is not None:
+                set_bone_collection(rig, b, coll_mix_name)
 
         # Shoulder Ctrl
-        c_shoulder_name = c_prefix + arm_rig_names["shoulder"] + _side
-        c_shoulder = create_edit_bone(c_shoulder_name)
-        copy_bone_transforms(shoulder, c_shoulder)
-        # c_shoulder.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
-        c_shoulder.parent = get_edit_bone(kai_parent_spine_name)
-        set_bone_collection(rig, c_shoulder, coll_ctrl_name)
+        c_shoulder_name = None
+        c_shoulder = None
+        if has_shoulder:
+            c_shoulder_name = c_prefix + arm_rig_names["shoulder"] + _side
+            c_shoulder = create_edit_bone(c_shoulder_name)
+            copy_bone_transforms(shoulder, c_shoulder)
+            # c_shoulder.parent = get_edit_bone(c_prefix + spine_rig_names["spine3"])
+            c_shoulder.parent = get_edit_bone(kai_parent_spine_name)
+            set_bone_collection(rig, c_shoulder, coll_ctrl_name)
 
         # Arm IK
         arm_ik_name = arm_rig_names["arm_ik"] + _side
@@ -3948,7 +4034,7 @@ def _make_rig(self, context):
         )
 
         arm_ik.tail = rotated_point
-        arm_ik.parent = c_shoulder
+        arm_ik.parent = c_shoulder if c_shoulder is not None else get_edit_bone(kai_parent_spine_name)
         set_bone_collection(rig, arm_ik, coll_intern_name)
 
         # Arm FK Ctrl
@@ -4035,6 +4121,7 @@ def _make_rig(self, context):
             "exists": True,
             "side": side,
             "shoulder_name": shoulder_name,
+            "has_shoulder": has_shoulder,
             "arm_name": arm_name,
             "forearm_name": forearm_name,
             "hand_name": hand_name,
@@ -4740,8 +4827,17 @@ def _make_rig(self, context):
         _side = "_" + arm_data["side"]
 
         # Get pose bones
-        c_shoulder_pb = get_pose_bone(arm_data["c_shoulder_name"])
-        shoulder_pb = get_pose_bone(arm_data["shoulder_name"])
+        has_shoulder = arm_data.get("has_shoulder", False)
+        c_shoulder_pb = (
+            get_pose_bone(arm_data["c_shoulder_name"])
+            if has_shoulder
+            else None
+        )
+        shoulder_pb = (
+            get_pose_bone(arm_data["shoulder_name"])
+            if has_shoulder
+            else None
+        )
         c_arm_fk_pb = get_pose_bone(arm_data["c_arm_fk_name"])
         forearm_ik_pb = get_pose_bone(arm_data["forearm_ik_name"])
         c_pole_ik_pb = get_pose_bone(arm_data["c_pole_ik_name"])
@@ -4753,14 +4849,15 @@ def _make_rig(self, context):
         c_hand_fk_pb = get_pose_bone(arm_data["c_hand_fk_name"])
 
         # Arm FK Ctrl
-        cns_name = "Copy Location"
-        cns = c_arm_fk_pb.constraints.get(cns_name)
-        if cns is None:
-            cns = c_arm_fk_pb.constraints.new("COPY_LOCATION")
-            cns.name = cns_name
-        cns.head_tail = 1.0
-        cns.target = rig
-        cns.subtarget = arm_data["c_shoulder_name"]
+        if has_shoulder and c_shoulder_pb is not None:
+            cns_name = "Copy Location"
+            cns = c_arm_fk_pb.constraints.get(cns_name)
+            if cns is None:
+                cns = c_arm_fk_pb.constraints.new("COPY_LOCATION")
+                cns.name = cns_name
+            cns.head_tail = 1.0
+            cns.target = rig
+            cns.subtarget = arm_data["c_shoulder_name"]
 
         # Forearm IK
         cns_name = "IK"
@@ -4807,7 +4904,8 @@ def _make_rig(self, context):
             add_copy_transf(finger_pb, rig, c_finger_pb.name)
 
         # Shoulder
-        add_copy_transf(shoulder_pb, rig, c_shoulder_pb.name)
+        if has_shoulder and shoulder_pb is not None and c_shoulder_pb is not None:
+            add_copy_transf(shoulder_pb, rig, c_shoulder_pb.name)
 
         # IK-FK switch property
         if "ik_fk_switch" not in c_hand_ik_pb.keys():
@@ -4920,7 +5018,8 @@ def _make_rig(self, context):
         lock_pbone_transform(c_hand_fk_pb, "location", [0, 1, 2])
 
         # Set custom shapes
-        set_bone_custom_shape(c_shoulder_pb, "cs_shoulder_" + arm_data["side"].lower())
+        if has_shoulder and c_shoulder_pb is not None:
+            set_bone_custom_shape(c_shoulder_pb, "cs_shoulder_" + arm_data["side"].lower())
         set_bone_custom_shape(c_arm_fk_pb, "cs_arm_fk")
         set_bone_custom_shape(c_forearm_fk_pb, "cs_forearm_fk")
         set_bone_custom_shape(c_pole_ik_pb, "cs_sphere_012")
@@ -4935,13 +5034,14 @@ def _make_rig(self, context):
             set_bone_custom_shape(finger_pb, "cs_circle_025")
 
         c_pbones_list = [
-            c_shoulder_pb,
             c_arm_fk_pb,
             c_forearm_fk_pb,
             c_pole_ik_pb,
             c_hand_fk_pb,
             c_hand_ik_pb,
         ] + c_fingers_pb
+        if has_shoulder and c_shoulder_pb is not None:
+            c_pbones_list.insert(0, c_shoulder_pb)
 
         # tag controller bones
         for pb in c_pbones_list:
@@ -5000,6 +5100,9 @@ def _make_rig(self, context):
     safe_hip_name = reference_mapping.get("hip_name", "")
     safe_chest_name = reference_mapping.get("chest_name", "")
     safe_head_name = reference_mapping.get("head_name", "")
+    safe_shoulder_names = reference_mapping.get("shoulder_names", {})
+    safe_shoulder_left_name = safe_shoulder_names.get("Left", "")
+    safe_shoulder_right_name = safe_shoulder_names.get("Right", "")
 
     self.report(
         {"INFO"},
@@ -5009,7 +5112,9 @@ def _make_rig(self, context):
             f"Spines={safe_spine_names} | "
             f"Chest={safe_chest_name} | "
             f"Necks={safe_neck_names} | "
-            f"Head={safe_head_name}"
+            f"Head={safe_head_name} | "
+            f"Shoulders={{'Left': '{safe_shoulder_left_name}', "
+            f"'Right': '{safe_shoulder_right_name}'}}"
         )
     )
 
@@ -5018,6 +5123,8 @@ def _make_rig(self, context):
     rig.data["kai_hip_name"] = safe_hip_name
     rig.data["kai_neck_names"] = ",".join(safe_neck_names)
     rig.data["kai_head_name"] = safe_head_name
+    rig.data["kai_shoulder_left_name"] = safe_shoulder_left_name
+    rig.data["kai_shoulder_right_name"] = safe_shoulder_right_name
 
     self.report(
         {"INFO"},
@@ -5027,7 +5134,9 @@ def _make_rig(self, context):
             f"Spines={rig.data['kai_spine_names']} | "
             f"Chest={rig.data['kai_chest_name']} | "
             f"Necks={rig.data['kai_neck_names']} | "
-            f"Head={rig.data['kai_head_name']}"
+            f"Head={rig.data['kai_head_name']} | "
+            f"Shoulders={{'Left': '{rig.data['kai_shoulder_left_name']}', "
+            f"'Right': '{rig.data['kai_shoulder_right_name']}'}}"
         )
     )
 
