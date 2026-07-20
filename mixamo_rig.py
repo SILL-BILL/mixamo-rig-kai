@@ -425,6 +425,179 @@ def _kai_get_mapping_names_from_rig_data(rig):
         "shoulders": shoulder_source_names,
     }
 
+def _kai_mapping_names_for_generate(rig):
+    return _kai_validate_mapping_for_rebuild(rig)
+
+
+def _kai_resolve_mapping_bone_name(rig, bone_name):
+    if not bone_name:
+        return ""
+    if rig.data.bones.get(bone_name) is not None:
+        return bone_name
+
+    detected_prefix = _detect_mixamo_prefix(rig)
+    prefixed_name = _kai_prefixed_source_bone_name(bone_name, detected_prefix)
+    if prefixed_name != bone_name and rig.data.bones.get(prefixed_name) is not None:
+        return prefixed_name
+
+    if detected_prefix and bone_name.startswith(detected_prefix):
+        unprefixed_name = bone_name[len(detected_prefix):]
+        if rig.data.bones.get(unprefixed_name) is not None:
+            return unprefixed_name
+
+    return bone_name
+
+
+def _kai_unique_mapping_bone_names(mapping_names):
+    names = []
+    for name in [
+        mapping_names.get("hip", ""),
+        *mapping_names.get("spines", []),
+        mapping_names.get("chest", ""),
+        *mapping_names.get("necks", []),
+        mapping_names.get("head", ""),
+        *mapping_names.get("shoulders", {}).values(),
+    ]:
+        if name and name not in names:
+            names.append(name)
+    return names
+
+
+def _kai_mapping_topology_record(rig, bone_name):
+    resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+    bone = rig.data.bones.get(resolved_name)
+    if bone is None:
+        return None
+    parent_name = bone.parent.name if bone.parent else ""
+    connected = "1" if bone.use_connect else "0"
+    return f"{bone.name}\t{parent_name}\t{connected}"
+
+
+def _kai_store_mapping_topology(rig, mapping_names):
+    records = []
+    for bone_name in _kai_unique_mapping_bone_names(mapping_names):
+        record = _kai_mapping_topology_record(rig, bone_name)
+        if record is not None:
+            records.append(record)
+    rig.data["kai_mapping_topology"] = "\n".join(records)
+    return records
+
+
+def _kai_parse_mapping_topology(raw_records):
+    topology = {}
+    if not raw_records:
+        return topology
+
+    for record in str(raw_records).split("\n"):
+        if not record:
+            continue
+        parts = record.split("\t")
+        if len(parts) != 3:
+            continue
+        topology[parts[0]] = {
+            "parent": parts[1],
+            "connected": parts[2] == "1",
+        }
+    return topology
+
+
+def _kai_warn_mapping_topology_changes(rig, reporter=None):
+    stored_topology = _kai_parse_mapping_topology(
+        rig.data.get("kai_mapping_topology", "")
+    )
+    if not stored_topology:
+        return []
+
+    warnings = []
+    for bone_name, stored in stored_topology.items():
+        resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+        bone = rig.data.bones.get(resolved_name)
+        if bone is None:
+            continue
+        parent_name = bone.parent.name if bone.parent else ""
+        connected = bool(bone.use_connect)
+        if parent_name != stored["parent"]:
+            warnings.append(
+                f"{bone_name}: parent {stored['parent'] or '<none>'} -> {parent_name or '<none>'}"
+            )
+        if connected != stored["connected"]:
+            warnings.append(
+                f"{bone_name}: connected {stored['connected']} -> {connected}"
+            )
+
+    if warnings and reporter is not None:
+        reporter.report(
+            {"WARNING"},
+            "[Kai] Reference Skeleton hierarchy/connection changed: "
+            + "; ".join(warnings[:4]),
+        )
+    return warnings
+
+
+def _kai_validate_mapping_for_rebuild(rig, reporter=None):
+    try:
+        if bpy.context.active_object == rig and rig.mode != "OBJECT":
+            bpy.ops.object.mode_set(mode="OBJECT")
+    except Exception:
+        pass
+
+    mapping_names = _kai_get_mapping_names_from_rig_data(rig)
+
+    required_missing = []
+    for label, key in (("Hip", "hip"), ("Chest", "chest"), ("Head", "head")):
+        bone_name = mapping_names.get(key, "")
+        resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+        if not bone_name or rig.data.bones.get(resolved_name) is None:
+            required_missing.append(f"{label}={bone_name or '<empty>'}")
+        else:
+            mapping_names[key] = resolved_name
+
+    if required_missing:
+        raise RuntimeError(
+            "[Kai] Missing required Mapping bones: " + ", ".join(required_missing)
+        )
+
+    missing_optional = []
+    filtered_spines = []
+    for bone_name in mapping_names.get("spines", []):
+        resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+        if bone_name and rig.data.bones.get(resolved_name) is not None:
+            filtered_spines.append(resolved_name)
+        elif bone_name:
+            missing_optional.append(f"Spine={bone_name}")
+
+    filtered_necks = []
+    for bone_name in mapping_names.get("necks", []):
+        resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+        if bone_name and rig.data.bones.get(resolved_name) is not None:
+            filtered_necks.append(resolved_name)
+        elif bone_name:
+            missing_optional.append(f"Neck={bone_name}")
+
+    filtered_shoulders = {}
+    for side, bone_name in mapping_names.get("shoulders", {}).items():
+        resolved_name = _kai_resolve_mapping_bone_name(rig, bone_name)
+        if bone_name and rig.data.bones.get(resolved_name) is not None:
+            filtered_shoulders[side] = resolved_name
+        else:
+            filtered_shoulders[side] = ""
+            if bone_name:
+                missing_optional.append(f"Shoulder {side}={bone_name}")
+
+    mapping_names["spines"] = filtered_spines
+    mapping_names["necks"] = filtered_necks
+    mapping_names["shoulders"] = filtered_shoulders
+
+    if missing_optional and reporter is not None:
+        reporter.report(
+            {"WARNING"},
+            "[Kai] Ignored missing optional Mapping bones: "
+            + ", ".join(missing_optional),
+        )
+
+    _kai_warn_mapping_topology_changes(rig, reporter)
+    return mapping_names
+
 
 def _kai_add_mapping_if_target_exists(bones_map, src_name, target_rig, target_name):
     if not src_name or not target_name:
@@ -447,6 +620,210 @@ def _kai_safe_bone_name(value):
     if not isinstance(name, str):
         return ""
     return name.strip()
+
+
+def _kai_split_generated_bone_names(raw_names):
+    if not raw_names:
+        return []
+    return [name for name in str(raw_names).split(",") if name]
+
+
+def _kai_get_stored_generated_bone_names(rig):
+    data = getattr(rig, "data", None)
+    if data is None:
+        return []
+    return _kai_split_generated_bone_names(data.get("kai_generated_bones", ""))
+
+
+def _kai_get_generated_bone_names_for_reset(rig):
+    stored_names = _kai_get_stored_generated_bone_names(rig)
+    if stored_names:
+        return [name for name in stored_names if rig.data.bones.get(name) is not None]
+
+    if "mr_control_rig" not in rig.data.keys():
+        return []
+
+    generated_names = []
+    for coll_name in ("CTRL", "MCH"):
+        coll = rig.data.collections.get(coll_name)
+        if coll is None:
+            continue
+        for bone in coll.bones:
+            if bone.name not in generated_names:
+                generated_names.append(bone.name)
+
+    return generated_names
+
+
+def _kai_store_generated_bones(rig, existing_bone_names):
+    generated_names = [
+        bone.name
+        for bone in rig.data.bones
+        if bone.name not in existing_bone_names
+    ]
+    generated_names.sort()
+
+    for name in generated_names:
+        bone = rig.data.bones.get(name)
+        if bone is not None:
+            bone["kai_generated"] = True
+
+    rig.data["kai_generated_bones"] = ",".join(generated_names)
+    return generated_names
+
+
+def _kai_constraint_key(pbone_name, constraint_name):
+    return f"{pbone_name}\t{constraint_name}"
+
+
+def _kai_snapshot_constraints(rig):
+    return {
+        _kai_constraint_key(pbone.name, cns.name)
+        for pbone in rig.pose.bones
+        for cns in pbone.constraints
+    }
+
+
+def _kai_split_generated_constraint_keys(raw_keys):
+    if not raw_keys:
+        return []
+    return [key for key in str(raw_keys).split("\n") if key]
+
+
+def _kai_store_generated_constraints(rig, existing_constraint_keys, generated_names):
+    generated_name_set = set(generated_names)
+    generated_constraint_keys = []
+
+    for pbone in rig.pose.bones:
+        owner_is_generated = pbone.name in generated_name_set
+        for cns in pbone.constraints:
+            key = _kai_constraint_key(pbone.name, cns.name)
+            if key in existing_constraint_keys:
+                continue
+
+            target = getattr(cns, "target", None)
+            subtarget = getattr(cns, "subtarget", "")
+            targets_generated_bone = target == rig and subtarget in generated_name_set
+            if owner_is_generated or targets_generated_bone:
+                generated_constraint_keys.append(key)
+
+    generated_constraint_keys.sort()
+    rig.data["kai_generated_constraints"] = "\n".join(generated_constraint_keys)
+    return generated_constraint_keys
+
+
+def _kai_driver_uses_generated_bone(driver_fcurve, generated_names):
+    data_path = getattr(driver_fcurve, "data_path", "")
+    for name in generated_names:
+        if f'pose.bones["{name}"]' in data_path:
+            return True
+
+    driver = getattr(driver_fcurve, "driver", None)
+    if driver is None:
+        return False
+
+    for var in driver.variables:
+        for target in var.targets:
+            target_path = getattr(target, "data_path", "")
+            for name in generated_names:
+                if f'pose.bones["{name}"]' in target_path:
+                    return True
+
+    return False
+
+
+def _kai_remove_generated_drivers(rig, generated_names):
+    if rig.animation_data is None:
+        return 0
+
+    removed_count = 0
+    for driver_fcurve in list(rig.animation_data.drivers):
+        if _kai_driver_uses_generated_bone(driver_fcurve, generated_names):
+            rig.driver_remove(driver_fcurve.data_path, driver_fcurve.array_index)
+            removed_count += 1
+    return removed_count
+
+
+def _kai_reset_generated_rig(context, reporter=None):
+    rig = context.active_object
+    if rig is None or rig.type != "ARMATURE":
+        raise RuntimeError("No armature selected")
+
+    generated_names = _kai_get_generated_bone_names_for_reset(rig)
+    generated_name_set = set(generated_names)
+
+    try:
+        bpy.ops.object.mode_set(mode="OBJECT")
+    except Exception:
+        pass
+
+    _deselect_all_objects()
+    set_active_object(rig.name)
+
+    stored_constraint_keys = set(
+        _kai_split_generated_constraint_keys(
+            rig.data.get("kai_generated_constraints", "")
+        )
+    )
+
+    removed_constraints = 0
+    bpy.ops.object.mode_set(mode="POSE")
+    for pbone in rig.pose.bones:
+        owner_is_generated = pbone.name in generated_name_set
+        for cns in list(pbone.constraints):
+            constraint_key = _kai_constraint_key(pbone.name, cns.name)
+            remove_constraint = constraint_key in stored_constraint_keys
+
+            if not stored_constraint_keys:
+                target = getattr(cns, "target", None)
+                subtarget = getattr(cns, "subtarget", "")
+                is_kai_target = target == rig and subtarget in generated_name_set
+                remove_constraint = owner_is_generated or is_kai_target
+
+            if remove_constraint:
+                pbone.constraints.remove(cns)
+                removed_constraints += 1
+
+    removed_drivers = _kai_remove_generated_drivers(rig, generated_names)
+
+    bpy.ops.object.mode_set(mode="EDIT")
+    removed_bones = 0
+    for name in generated_names:
+        bone = rig.data.edit_bones.get(name)
+        if bone is not None:
+            rig.data.edit_bones.remove(bone)
+            removed_bones += 1
+
+    bpy.ops.object.mode_set(mode="OBJECT")
+
+    for coll_name in ("CTRL", "MCH"):
+        coll = rig.data.collections.get(coll_name)
+        if coll is not None and len(coll.bones) == 0:
+            try:
+                rig.data.collections.remove(coll)
+            except Exception:
+                pass
+
+    for prop_name in ("mr_control_rig", "kai_generated_bones", "kai_generated_constraints"):
+        if prop_name in rig.data.keys():
+            del rig.data[prop_name]
+
+    if reporter is not None:
+        reporter.report(
+            {"INFO"},
+            (
+                "[Kai] Reset Generated Rig: "
+                f"{removed_bones} bones, "
+                f"{removed_constraints} constraints, "
+                f"{removed_drivers} drivers"
+            ),
+        )
+
+    return {
+        "bones": removed_bones,
+        "constraints": removed_constraints,
+        "drivers": removed_drivers,
+    }
 
 
 def _has_fk_foot_setup_issue(rig, side):
@@ -1469,6 +1846,97 @@ class MR_OT_reconnect_rig(bpy.types.Operator):  # noqa: N801
         return {"FINISHED"}
 
 
+
+class MR_OT_reset_generated_rig(bpy.types.Operator):  # noqa: N801
+    """Remove Kai-generated rig data while keeping the reference skeleton"""
+
+    bl_idname = "mr.reset_generated_rig"
+    bl_label = "Reset Generated Rig"
+    bl_description = "Remove Kai-generated control rig bones and constraints only"
+    bl_options = {"UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return bool(obj and obj.type == "ARMATURE")
+
+    def execute(self, context):
+        try:
+            _kai_reset_generated_rig(context, self)
+        except RuntimeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class MR_OT_rebuild_rig(bpy.types.Operator):  # noqa: N801
+    """Reset Kai-generated rig data and generate the rig again"""
+
+    bl_idname = "mr.rebuild_rig"
+    bl_label = "Rebuild Rig"
+    bl_description = "Reset generated rig data, then generate a fresh rig from the current reference skeleton"
+    bl_options = {"UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        return bool(obj and obj.type == "ARMATURE")
+
+    def execute(self, context):
+        rig = context.active_object
+        try:
+            mapping_names = _kai_validate_mapping_for_rebuild(rig, self)
+        except RuntimeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        spines = mapping_names.get("spines", [])[:6]
+        necks = mapping_names.get("necks", [])[:3]
+        shoulders = mapping_names.get("shoulders", {})
+
+        try:
+            _kai_reset_generated_rig(context, self)
+        except RuntimeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+
+        try:
+            result = bpy.ops.mr.make_rig(
+                "EXEC_DEFAULT",
+                bake_anim=False,
+                ik_arms=True,
+                ik_legs=True,
+                use_optional_spine=bool(spines),
+                use_optional_neck=bool(necks),
+                use_optional_shoulder=bool(
+                    shoulders.get("Left", "") or shoulders.get("Right", "")
+                ),
+                map_hip=mapping_names.get("hip", spine_names["pelvis"]),
+                map_spine1=spines[0] if len(spines) > 0 else "",
+                map_spine2=spines[1] if len(spines) > 1 else "",
+                map_spine3=spines[2] if len(spines) > 2 else "",
+                map_spine4=spines[3] if len(spines) > 3 else "",
+                map_spine5=spines[4] if len(spines) > 4 else "",
+                map_spine6=spines[5] if len(spines) > 5 else "",
+                map_chest=mapping_names.get("chest", spine_names["spine3"]),
+                map_neck1=necks[0] if len(necks) > 0 else "",
+                map_neck2=necks[1] if len(necks) > 1 else "",
+                map_neck3=necks[2] if len(necks) > 2 else "",
+                map_head=mapping_names.get("head", head_names["head"]),
+                map_shoulder_left=shoulders.get("Left", ""),
+                map_shoulder_right=shoulders.get("Right", ""),
+            )
+        except Exception as exc:
+            self.report({"ERROR"}, f"Rebuild Rig failed during Generate Rig: {exc}")
+            return {"CANCELLED"}
+
+        if "FINISHED" not in result:
+            self.report({"ERROR"}, "Generate Rig did not finish")
+            return {"CANCELLED"}
+
+        self.report({"INFO"}, "Rebuild Rig Done!")
+        return {"FINISHED"}
+
+
 class MR_OT_fix_fk_foot_setup(bpy.types.Operator):  # noqa: N801
     """Repair the legacy FK foot helper setup on an existing control rig"""
 
@@ -1622,7 +2090,7 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
     """Generate a control rig from the selected Mixamo skeleton"""
 
     bl_idname = "mr.make_rig"
-    bl_label = "Create control rig from selected armature"
+    bl_label = "Generate Rig"
     bl_options = {"UNDO"}
 
     bake_anim: bpy.props.BoolProperty(
@@ -3449,6 +3917,8 @@ def _make_rig(self, context):
 
     rig_name = context.active_object.name
     rig = get_object(rig_name)
+    existing_bone_names = {bone.name for bone in rig.data.bones}
+    existing_constraint_keys = _kai_snapshot_constraints(rig)
 
     # Ensure we're in OBJECT mode - do NOT force dependency graph update here
     try:
@@ -4547,7 +5017,7 @@ def _make_rig(self, context):
         cns_power = 8
 
         # Toe End
-        len = toes_end_pb.length * cns_power
+        toe_end_length = toes_end_pb.length * cns_power
 
         cns_name = "Transformation"
         cns = toes_end_pb.constraints.get(cns_name)
@@ -4559,8 +5029,8 @@ def _make_rig(self, context):
         cns.use_motion_extrapolate = True
         cns.target_space = cns.owner_space = "LOCAL"
         cns.map_from = "LOCATION"
-        cns.from_min_z = 0.5 * len
-        cns.from_max_z = -0.5 * len
+        cns.from_min_z = 0.5 * toe_end_length
+        cns.from_max_z = -0.5 * toe_end_length
         cns.map_to = "ROTATION"
         cns.map_to_x_from = "Z"
         cns.map_to_z_from = "X"
@@ -4614,7 +5084,7 @@ def _make_rig(self, context):
         cns.use_target_z = True
 
         # Heel Mid
-        len = heel_mid_pb.length * cns_power
+        heel_mid_length = heel_mid_pb.length * cns_power
 
         cns_name = "Transformation"
         cns = heel_mid_pb.constraints.get(cns_name)
@@ -4625,8 +5095,8 @@ def _make_rig(self, context):
         cns.subtarget = leg_data["c_foot_roll_cursor_name"]
         cns.owner_space = cns.target_space = "LOCAL"
         cns.map_from = "LOCATION"
-        cns.from_min_z = -0.25 * len
-        cns.from_max_z = 0.25 * len
+        cns.from_min_z = -0.25 * heel_mid_length
+        cns.from_max_z = 0.25 * heel_mid_length
         cns.map_to = "ROTATION"
         cns.map_to_x_from = "Z"
         cns.map_to_y_from = "X"
@@ -4646,7 +5116,7 @@ def _make_rig(self, context):
         cns.owner_space = "LOCAL"
 
         # Heel In
-        len = heel_in_pb.length * cns_power
+        heel_in_length = heel_in_pb.length * cns_power
 
         cns_name = "Transformation"
         cns = heel_in_pb.constraints.get(cns_name)
@@ -4657,8 +5127,8 @@ def _make_rig(self, context):
         cns.subtarget = leg_data["c_foot_roll_cursor_name"]
         cns.owner_space = cns.target_space = "LOCAL"
         cns.map_from = "LOCATION"
-        cns.from_min_x = -0.25 * len
-        cns.from_max_x = 0.25 * len
+        cns.from_min_x = -0.25 * heel_in_length
+        cns.from_max_x = 0.25 * heel_in_length
         cns.map_to = "ROTATION"
         cns.map_to_x_from = "Z"
         cns.map_to_y_from = "X"
@@ -4684,7 +5154,7 @@ def _make_rig(self, context):
         cns.owner_space = "LOCAL"
 
         # Heel Out
-        len = heel_out_pb.length * cns_power
+        heel_out_length = heel_out_pb.length * cns_power
 
         cns_name = "Transformation"
         cns = heel_out_pb.constraints.get(cns_name)
@@ -4695,8 +5165,8 @@ def _make_rig(self, context):
         cns.subtarget = leg_data["c_foot_roll_cursor_name"]
         cns.owner_space = cns.target_space = "LOCAL"
         cns.map_from = "LOCATION"
-        cns.from_min_x = -0.25 * len
-        cns.from_max_x = 0.25 * len
+        cns.from_min_x = -0.25 * heel_out_length
+        cns.from_max_x = 0.25 * heel_out_length
         cns.map_to = "ROTATION"
         cns.map_to_x_from = "Z"
         cns.map_to_y_from = "X"
@@ -5269,6 +5739,20 @@ def _make_rig(self, context):
     rig.data["kai_head_name"] = safe_head_name
     rig.data["kai_shoulder_left_name"] = safe_shoulder_left_name
     rig.data["kai_shoulder_right_name"] = safe_shoulder_right_name
+    _kai_store_mapping_topology(
+        rig,
+        {
+            "hip": safe_hip_name,
+            "spines": safe_spine_names,
+            "chest": safe_chest_name,
+            "necks": safe_neck_names,
+            "head": safe_head_name,
+            "shoulders": {
+                "Left": safe_shoulder_left_name,
+                "Right": safe_shoulder_right_name,
+            },
+        },
+    )
 
     self.report(
         {"INFO"},
@@ -5289,6 +5773,13 @@ def _make_rig(self, context):
 
     # Set rig to not show in front
     rig.show_in_front = False
+
+    generated_names = _kai_store_generated_bones(rig, existing_bone_names)
+    _kai_store_generated_constraints(rig, existing_constraint_keys, generated_names)
+    self.report(
+        {"INFO"},
+        f"[Kai] Stored generated bones: {len(generated_names)}",
+    )
 
     # tag the armature with a custom prop to specify the control rig is built
     rig.data["mr_control_rig"] = True
@@ -6217,7 +6708,8 @@ class MR_PT_MenuRig(Panel, MixamoRigPanel):  # noqa: N801
             text="Create Reference Skeleton",
         )
         op.template_key = context.scene.mr_reference_template
-        col.operator(MR_OT_make_rig.bl_idname, text="Create Control Rig")
+        col.operator(MR_OT_make_rig.bl_idname, text="Generate Rig")
+        col.operator(MR_OT_rebuild_rig.bl_idname, text="Rebuild Rig")
         col.operator(MR_OT_zero_out.bl_idname, text="Zero Out Rig")
 
         col = layt.column(align=True)
@@ -6225,6 +6717,7 @@ class MR_PT_MenuRig(Panel, MixamoRigPanel):  # noqa: N801
 
         if context.mode != "EDIT_MESH":
             col.operator(MR_OT_edit_custom_shape.bl_idname, text="Edit Control Shape")
+            col.operator(MR_OT_reset_generated_rig.bl_idname, text="Reset Generated Rig")
             col.operator(MR_OT_reconnect_rig.bl_idname, text="Reconnect Rig")
         else:
             col.operator(MR_OT_apply_shape.bl_idname, text="Apply Control Shape")
@@ -6293,6 +6786,8 @@ classes = (
     MR_PT_MenuUpdate,
     MR_OT_create_reference_skeleton,
     MR_OT_make_rig,
+    MR_OT_reset_generated_rig,
+    MR_OT_rebuild_rig,
     MR_OT_zero_out,
     MR_OT_bake_anim,
     MR_OT_import_anim,
