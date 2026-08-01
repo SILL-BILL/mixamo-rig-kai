@@ -334,6 +334,44 @@ def _kai_prefixed_source_bone_name(base_name, detected_prefix):
     return base_name
 
 
+def _kai_bone_exists_on_armature(armature, bone_name):
+    if armature is None or not bone_name:
+        return False
+    data = getattr(armature, "data", None)
+    if data is not None and data.bones.get(bone_name) is not None:
+        return True
+    pose = getattr(armature, "pose", None)
+    return bool(pose is not None and pose.bones.get(bone_name) is not None)
+
+
+def _kai_bone_name_candidates(bone_name, detected_prefix=""):
+    candidates = []
+
+    def add_candidate(name):
+        if name and name not in candidates:
+            candidates.append(name)
+
+    add_candidate(bone_name)
+    add_candidate(_kai_prefixed_source_bone_name(bone_name, detected_prefix))
+
+    if detected_prefix and bone_name.startswith(detected_prefix):
+        add_candidate(bone_name[len(detected_prefix):])
+
+    if ":" in bone_name:
+        unprefixed_name = bone_name.split(":", 1)[1]
+        add_candidate(unprefixed_name)
+        add_candidate(_kai_prefixed_source_bone_name(unprefixed_name, detected_prefix))
+
+    return candidates
+
+
+def _kai_resolve_bone_name_on_armature(armature, bone_name, detected_prefix=""):
+    for candidate in _kai_bone_name_candidates(bone_name, detected_prefix):
+        if _kai_bone_exists_on_armature(armature, candidate):
+            return candidate
+    return ""
+
+
 def _kai_resolve_spine_sources(source_spine_names, source_chest_name):
     spine_names = [name for name in source_spine_names if name]
     chest_name = source_chest_name
@@ -432,20 +470,14 @@ def _kai_mapping_names_for_generate(rig):
 def _kai_resolve_mapping_bone_name(rig, bone_name):
     if not bone_name:
         return ""
-    if rig.data.bones.get(bone_name) is not None:
-        return bone_name
 
     detected_prefix = _detect_mixamo_prefix(rig)
-    prefixed_name = _kai_prefixed_source_bone_name(bone_name, detected_prefix)
-    if prefixed_name != bone_name and rig.data.bones.get(prefixed_name) is not None:
-        return prefixed_name
-
-    if detected_prefix and bone_name.startswith(detected_prefix):
-        unprefixed_name = bone_name[len(detected_prefix):]
-        if rig.data.bones.get(unprefixed_name) is not None:
-            return unprefixed_name
-
-    return bone_name
+    resolved_name = _kai_resolve_bone_name_on_armature(
+        rig,
+        bone_name,
+        detected_prefix,
+    )
+    return resolved_name or bone_name
 
 
 def _kai_unique_mapping_bone_names(mapping_names):
@@ -606,6 +638,66 @@ def _kai_add_mapping_if_target_exists(bones_map, src_name, target_rig, target_na
         return False
     bones_map[src_name] = target_name
     return True
+
+
+def _kai_add_resolved_source_mapping_if_target_exists(
+    bones_map,
+    src_arm,
+    source_name,
+    detected_prefix,
+    target_rig,
+    target_name,
+    role_label,
+):
+    if not source_name or not target_name:
+        print(
+            f"    SKIP: Missing retarget mapping name for {role_label}: "
+            f"source={source_name or '<empty>'}, target={target_name or '<empty>'}"
+        )
+        return ""
+
+    target_candidates = [target_name]
+    if target_name.startswith(c_prefix):
+        target_base_names = _kai_bone_name_candidates(source_name, detected_prefix)
+        target_base_names += _kai_bone_name_candidates(
+            source_name,
+            _detect_mixamo_prefix(target_rig),
+        )
+        for target_base_name in target_base_names:
+            candidate = c_prefix + target_base_name
+            if candidate not in target_candidates:
+                target_candidates.append(candidate)
+
+    resolved_target_name = ""
+    for candidate in target_candidates:
+        if _get_armature_pose_bone(target_rig, candidate) is not None:
+            resolved_target_name = candidate
+            break
+
+    if not resolved_target_name:
+        print(
+            f"    SKIP: Target control not found for {role_label}: "
+            f"saved={target_name}, tried=[{', '.join(target_candidates)}]"
+        )
+        return ""
+
+    resolved_source_name = _kai_resolve_bone_name_on_armature(
+        src_arm,
+        source_name,
+        detected_prefix,
+    )
+    if not resolved_source_name:
+        candidates = ", ".join(
+            _kai_bone_name_candidates(source_name, detected_prefix)
+        )
+        print(
+            f"    SKIP: Source bone not found for {role_label}: "
+            f"saved={source_name}, tried=[{candidates}]"
+        )
+        return ""
+
+    bones_map[resolved_source_name] = resolved_target_name
+    return resolved_source_name
 
 
 def _kai_safe_bone_name(value):
@@ -6213,21 +6305,31 @@ def _import_anim(src_arm, tar_arm, import_only=False):
     bones_map = {}
 
     kai_mapping_names = _kai_get_mapping_names_from_rig_data(tar_arm)
-    _kai_add_mapping_if_target_exists(
+    hip_source_names = set()
+    resolved_hip_source = _kai_add_resolved_source_mapping_if_target_exists(
         bones_map,
-        get_src_bone_name(kai_mapping_names["hip"]),
+        src_arm,
+        kai_mapping_names["hip"],
+        detected_prefix,
         tar_arm,
         c_prefix + spine_rig_names["pelvis"],
+        "Hip",
     )
+    if resolved_hip_source:
+        hip_source_names.add(resolved_hip_source)
+
     for pair in _kai_build_spine_control_pairs(
         kai_mapping_names["spines"],
         kai_mapping_names["chest"],
     ):
-        _kai_add_mapping_if_target_exists(
+        _kai_add_resolved_source_mapping_if_target_exists(
             bones_map,
-            get_src_bone_name(pair["raw_name"]),
+            src_arm,
+            pair["raw_name"],
+            detected_prefix,
             tar_arm,
             pair["control_name"],
+            f"Spine/Chest {pair['raw_name']}",
         )
     for pair in _kai_build_spine_control_pairs(
         kai_mapping_names["necks"],
@@ -6526,7 +6628,7 @@ def _import_anim(src_arm, tar_arm, import_only=False):
         cns.subtarget = src_name
 
         # Hips gets COPY_LOCATION in LOCAL space
-        if "Hips" in src_name:
+        if src_name in hip_source_names:
             cns_name = "Copy Location_retarget"
             cns = tar_bone.constraints.new("COPY_LOCATION")
             cns.name = cns_name

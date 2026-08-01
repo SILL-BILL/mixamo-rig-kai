@@ -107,6 +107,16 @@ Planned:
 
 ## Changelog
 
+### v0.5.1 Preview
+
+Bug fix release for the v0.5.0 Preview retarget regression.
+
+- Fixed the Hips / Spine / Chest retarget regression
+- Improved prefix-safe Mapping name resolution
+- Unified bone name resolution between Rebuild and Retarget
+- Improved Hip Mapping support so mapped hips such as `Pelvis` can receive Copy Location constraints
+- Added retarget debug logging for missing source and target bones
+
 ### v0.5.0 Preview
 
 - Added Rebuild Rig

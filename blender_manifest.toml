@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "mixamo_rig_kai"
-version = "0.5.0"
+version = "0.5.1"
 name = "Mixamo Rig Kai"
 tagline = "Variable spine and neck support for Mixamo rigs"
 maintainer = "Gonsaku"
