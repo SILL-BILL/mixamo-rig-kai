@@ -80,6 +80,25 @@ KAI_REFERENCE_TEMPLATE_ITEMS = tuple(
     for key, template in KAI_REFERENCE_TEMPLATES.items()
 )
 
+RETARGET_ROTATION_OUTPUT_ITEMS = (
+    (
+        "QUATERNION",
+        "Quaternion",
+        "Bake retarget rotations as quaternion keys",
+    ),
+    (
+        "EULER",
+        "Euler",
+        "Bake retarget rotations as Euler keys",
+    ),
+    (
+        "TARGET_ORIGINAL",
+        "Target Original",
+        "Use each target bone original rotation mode",
+    ),
+)
+
+
 
 # UTILITY FUNCTIONS
 ####################
@@ -2190,6 +2209,13 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
         description="Bake animation to the control bones",
         default=True,
     )
+    retarget_rotation_output: bpy.props.EnumProperty(
+        name="Retarget Rotation Output",
+        description="Rotation channel type used when baking retargeted animation",
+        items=RETARGET_ROTATION_OUTPUT_ITEMS,
+        default="QUATERNION",
+    )
+
     ik_arms: bpy.props.BoolProperty(
         name="IK Hands",
         description=(
@@ -2262,6 +2288,12 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
     def draw(self, context):
         layout = self.layout
         layout.prop(self, "bake_anim", text="Apply Animation")
+        if self.bake_anim:
+            layout.prop(
+                self,
+                "retarget_rotation_output",
+                text="Rotation Output",
+            )
         layout.prop(self, "ik_arms", text="IK Arms")
         layout.prop(self, "ik_legs", text="IK Legs")
 
@@ -2551,7 +2583,11 @@ class MR_OT_make_rig(bpy.types.Operator):  # noqa: N801
 
             # animation import: retarget
             if self.bake_anim and self.animated_armature:
-                _import_anim(self.animated_armature, arm)
+                _import_anim(
+                    self.animated_armature,
+                    arm,
+                    rotation_output=self.retarget_rotation_output,
+                )
 
             # set KeyingSet
             ks = context.scene.keying_sets_all
@@ -2673,7 +2709,12 @@ class MR_OT_import_anim(bpy.types.Operator):  # noqa: N801
             print("Source", src_arm.name)
             print("Target", tar_arm.name)
 
-            _import_anim(src_arm, tar_arm, import_only=True)
+            _import_anim(
+                src_arm,
+                tar_arm,
+                import_only=True,
+                rotation_output=scn.mr_retarget_rotation_output,
+            )
 
         # except:
         #    error = True
@@ -6179,8 +6220,9 @@ def add_slight_bend(bone, axis, angle=0.01):
     bone.matrix = bone.matrix @ rot_mat
 
 
-def _import_anim(src_arm, tar_arm, import_only=False):
+def _import_anim(src_arm, tar_arm, import_only=False, rotation_output="QUATERNION"):
     print("\nImporting animation...")
+    print(f"  Retarget rotation output: {rotation_output}")
 
     if src_arm.animation_data is None:
         print("  No action found on the source armature")
@@ -6682,6 +6724,7 @@ def _import_anim(src_arm, tar_arm, import_only=False):
         bake_bones=True,
         bake_object=False,
         ik_data=bake_ik_data,
+        rotation_output=rotation_output,
     )
 
     # Cleanup
@@ -6844,6 +6887,7 @@ class MR_PT_MenuAnim(Panel, MixamoRigPanel):  # noqa: N801
         # )
         col.label(text="Source Skeleton:")
         col.prop_search(scn, "mix_source_armature", scn, "objects", text="")
+        col.prop(scn, "mr_retarget_rotation_output", text="Rotation Output")
         col.separator()
 
         col = layt.column(align=True)
@@ -6916,6 +6960,13 @@ def register():
     bpy.types.Scene.mix_target_armature = bpy.props.PointerProperty(
         type=bpy.types.Object
     )
+    bpy.types.Scene.mr_retarget_rotation_output = bpy.props.EnumProperty(
+        name="Retarget Rotation Output",
+        description="Rotation channel type used when baking retargeted animation",
+        items=RETARGET_ROTATION_OUTPUT_ITEMS,
+        default="QUATERNION",
+    )
+
     bpy.types.Scene.mr_reference_template = bpy.props.EnumProperty(
         name="Reference Template",
         items=KAI_REFERENCE_TEMPLATE_ITEMS,
@@ -6931,6 +6982,7 @@ def unregister():
 
     del bpy.types.Scene.mix_source_armature
     del bpy.types.Scene.mix_target_armature
+    del bpy.types.Scene.mr_retarget_rotation_output
     del bpy.types.Scene.mr_reference_template
 
 

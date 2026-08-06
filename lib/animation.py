@@ -15,11 +15,30 @@ def bake_anim(
     bake_bones=True,
     bake_object=False,
     ik_data=None,
+    rotation_output="TARGET_ORIGINAL",
 ):
     scn = bpy.context.scene
     obj_data = []
     bones_data = []
     armature = bpy.data.objects.get(bpy.context.active_object.name)
+    rotation_output = rotation_output or "TARGET_ORIGINAL"
+    if rotation_output not in {"QUATERNION", "EULER", "TARGET_ORIGINAL"}:
+        rotation_output = "TARGET_ORIGINAL"
+    euler_modes = {"XYZ", "XZY", "YXZ", "YZX", "ZXY", "ZYX"}
+
+    def resolve_bone_rotation_mode(pbone):
+        if rotation_output == "QUATERNION":
+            return "QUATERNION"
+        if rotation_output == "EULER":
+            if pbone.rotation_mode in euler_modes:
+                return pbone.rotation_mode
+            return "XYZ"
+        return pbone.rotation_mode
+
+    def make_quaternion_compatible(quat, quat_prev):
+        if quat_prev is not None and quat.dot(quat_prev) < 0.0:
+            quat.negate()
+        return quat
 
     def get_bones_matrix():
         matrix = {}
@@ -150,6 +169,9 @@ def bake_anim(
             euler_prev = None
             quat_prev = None
             keyframes = {}
+            bake_rotation_mode = resolve_bone_rotation_mode(pb)
+            if pb.rotation_mode != bake_rotation_mode:
+                pb.rotation_mode = bake_rotation_mode
 
             for f, matrix in bones_data:
                 pb.matrix_basis = matrix[pb.name].copy()
@@ -157,17 +179,13 @@ def bake_anim(
                 for arr_idx, value in enumerate(pb.location):
                     store_keyframe(pb.name, "location", arr_idx, f, value)
 
-                rotation_mode = pb.rotation_mode
+                rotation_mode = bake_rotation_mode
 
                 if rotation_mode == "QUATERNION":
-                    if quat_prev is not None:
-                        quat = pb.rotation_quaternion.copy()
-                        quat.make_compatible(quat_prev)
-                        pb.rotation_quaternion = quat
-                        quat_prev = quat
-                        del quat
-                    else:
-                        quat_prev = pb.rotation_quaternion.copy()
+                    quat = pb.rotation_quaternion.copy()
+                    quat = make_quaternion_compatible(quat, quat_prev)
+                    pb.rotation_quaternion = quat
+                    quat_prev = quat.copy()
 
                     for arr_idx, value in enumerate(pb.rotation_quaternion):
                         store_keyframe(
@@ -185,8 +203,7 @@ def bake_anim(
                         euler = pb.rotation_euler.copy()
                         euler.make_compatible(euler_prev)
                         pb.rotation_euler = euler
-                        euler_prev = euler
-                        del euler
+                        euler_prev = euler.copy()
                     else:
                         euler_prev = pb.rotation_euler.copy()
 
