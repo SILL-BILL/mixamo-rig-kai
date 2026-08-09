@@ -107,6 +107,18 @@ Planned:
 
 ## Changelog
 
+### v0.6.0 Preview
+
+Feature release for Retarget Bake rotation output and Kai default controller rotation modes.
+
+- Added Retarget Bake Rotation Output options: `Quaternion`, `Euler`, and `Target Original`
+- Set `Quaternion` as the default retarget rotation output
+- Added Quaternion bake output using `rotation_quaternion` F-curves without generating `rotation_euler` F-curves
+- Added quaternion sign compatibility correction to avoid curve jumps between frames
+- Improved `Target Original` so it preserves each target controller's pre-bake rotation mode, including mixed Euler and Quaternion rigs
+- Updated Kai default control rig rotation modes: `Ctrl_Master` uses XYZ Euler, while other `mixamo_ctrl` controllers use Quaternion
+- Preserved existing controller rotation modes during Refresh, Reconnect, and Retarget setup so user changes are not reset to XYZ Euler
+
 ### v0.5.1 Preview
 
 Bug fix release for the v0.5.0 Preview retarget regression.

@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Mixamo Rig Kai",
     "author": "Original Author: BeyondDev (Tyler Walker); Kai Maintainer: Gonsaku",
-    "version": (0, 5, 1),
+    "version": (0, 6, 0),
     "blender": (4, 2, 0),
     "location": "3D View > Mixamo > Control Rig",
     "description": "Generate a flexible control rig from a Mixamo or reference-mapped humanoid skeleton",
