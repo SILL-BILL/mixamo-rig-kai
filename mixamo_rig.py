@@ -98,6 +98,24 @@ RETARGET_ROTATION_OUTPUT_ITEMS = (
     ),
 )
 
+def _kai_standard_rotation_mode_for_control(pbone):
+    if pbone.name == c_prefix + master_rig_names["master"]:
+        return "XYZ"
+    return "QUATERNION"
+
+
+def _kai_apply_standard_control_rotation_modes(rig):
+    if rig is None or getattr(rig, "pose", None) is None:
+        return
+
+    for pbone in rig.pose.bones:
+        try:
+            is_control = "mixamo_ctrl" in pbone.bone.keys()
+        except Exception:
+            is_control = False
+        if not is_control:
+            continue
+        pbone.rotation_mode = _kai_standard_rotation_mode_for_control(pbone)
 
 
 # UTILITY FUNCTIONS
@@ -3004,7 +3022,6 @@ def _build_constraints_for_rig(rig):
         c_master_pb = get_pose_bone(c_master_name)
         c_master_pb.bone["mixamo_ctrl"] = 1
         set_bone_custom_shape(c_master_pb, "cs_master")
-        c_master_pb.rotation_mode = "XYZ"
         set_bone_color_group(rig, c_master_pb, "master")
 
     kai_raw_hip_name = rig.data.get("kai_hip_name", spine_names["pelvis"])
@@ -3079,11 +3096,6 @@ def _build_constraints_for_rig(rig):
         for pb in spine_control_pbones:
             set_bone_custom_shape(pb, "cs_circle")
 
-        c_hips_pb.rotation_mode = "XYZ"
-        c_hips_free_pb.rotation_mode = "XYZ"
-        for pb in spine_control_pbones:
-            pb.rotation_mode = "XYZ"
-
         set_bone_color_group(rig, c_hips_pb, "root_master")
         set_bone_color_group(rig, c_hips_free_pb, "body_mid")
         for pb in spine_control_pbones:
@@ -3130,7 +3142,6 @@ def _build_constraints_for_rig(rig):
 
         c_neck_pb.bone["mixamo_ctrl"] = 1
         set_bone_custom_shape(c_neck_pb, "cs_neck")
-        c_neck_pb.rotation_mode = "XYZ"
         set_bone_color_group(rig, c_neck_pb, "neck")
 
         if neck_pb is not None:
@@ -3142,7 +3153,6 @@ def _build_constraints_for_rig(rig):
         c_head_pb.custom_shape_scale_xyz[0] = 1.9
         c_head_pb.custom_shape_scale_xyz[1] = 1.9
         c_head_pb.custom_shape_scale_xyz[2] = 1.9
-        c_head_pb.rotation_mode = "XYZ"
         set_bone_color_group(rig, c_head_pb, "head")
 
     if head_pb and c_head_pb:
@@ -3700,7 +3710,6 @@ def _build_constraints_for_rig(rig):
                 add_driver_to_prop(rig, dr_dp, tar_dp, array_idx=arr_id, exp="var")
 
         for pb in c_pbones_list:
-            pb.rotation_mode = "XYZ"
             set_bone_color_group(rig, pb, "body" + _side.lower())
 
     for side in ["Left", "Right"]:
@@ -3979,7 +3988,6 @@ def _build_constraints_for_rig(rig):
                 add_driver_to_prop(rig, dr_dp, tar_dp, array_idx=arr_id, exp="var")
 
         for pb in c_pbones_list:
-            pb.rotation_mode = "XYZ"
             set_bone_color_group(rig, pb, "body" + _side.lower())
 
     coll_ctrl_name = "CTRL"
@@ -5824,6 +5832,8 @@ def _make_rig(self, context):
             pb.rotation_mode = "XYZ"
             # set color group
             set_bone_color_group(rig, pb, "body" + _side.lower())
+
+    _kai_apply_standard_control_rotation_modes(rig)
 
     # Set custom_shape_wire_width for all control bones
     print("  Setting wire width for control bones...")
