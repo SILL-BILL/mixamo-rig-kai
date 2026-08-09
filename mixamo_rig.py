@@ -6316,6 +6316,11 @@ def _import_anim(src_arm, tar_arm, import_only=False, rotation_output="QUATERNIO
     except Exception:
         pass
 
+    original_rotation_modes = {
+        pb.name: pb.rotation_mode
+        for pb in tar_arm.pose.bones
+    }
+
     _refresh_control_rig_setup(tar_arm)
 
     arm_left_kinematic = _resolve_limb_kinematic_mode(
@@ -6725,6 +6730,7 @@ def _import_anim(src_arm, tar_arm, import_only=False, rotation_output="QUATERNIO
         bake_object=False,
         ik_data=bake_ik_data,
         rotation_output=rotation_output,
+        original_rotation_modes=original_rotation_modes,
     )
 
     # Cleanup

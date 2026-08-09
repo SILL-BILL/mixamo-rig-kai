@@ -16,6 +16,7 @@ def bake_anim(
     bake_object=False,
     ik_data=None,
     rotation_output="TARGET_ORIGINAL",
+    original_rotation_modes=None,
 ):
     scn = bpy.context.scene
     obj_data = []
@@ -33,6 +34,8 @@ def bake_anim(
             if pbone.rotation_mode in euler_modes:
                 return pbone.rotation_mode
             return "XYZ"
+        if original_rotation_modes:
+            return original_rotation_modes.get(pbone.name, pbone.rotation_mode)
         return pbone.rotation_mode
 
     def make_quaternion_compatible(quat, quat_prev):
