@@ -107,6 +107,15 @@ Planned:
 
 ## Changelog
 
+### v0.6.1 Preview
+
+Bug fix release for Neck / Head retarget baking with Reference Mapping.
+
+- Fixed duplicate prefix application when saved Neck / Head Mapping names already include a prefix
+- Unified Neck / Head source bone resolution with the prefix-safe resolver used by Hip / Spine / Chest
+- Fixed Neck / Head controllers being omitted from retarget and bake targets, which prevented animation keyframes from being generated
+- Improved resolution for unprefixed, prefixed, cross-prefix, and custom Neck / Head Mapping names
+
 ### v0.6.0 Preview
 
 Feature release for Retarget Bake rotation output and Kai default controller rotation modes.

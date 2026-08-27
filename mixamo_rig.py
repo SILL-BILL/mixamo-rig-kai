@@ -729,7 +729,8 @@ def _kai_add_resolved_source_mapping_if_target_exists(
         )
         print(
             f"    SKIP: Source bone not found for {role_label}: "
-            f"saved={source_name}, tried=[{candidates}]"
+            f"saved={source_name}, tried=[{candidates}], "
+            f"target={resolved_target_name}"
         )
         return ""
 
@@ -6392,17 +6393,23 @@ def _import_anim(src_arm, tar_arm, import_only=False, rotation_output="QUATERNIO
         kai_mapping_names["necks"],
         None,
     ):
-        _kai_add_mapping_if_target_exists(
+        _kai_add_resolved_source_mapping_if_target_exists(
             bones_map,
-            get_src_bone_name(pair["raw_name"]),
+            src_arm,
+            pair["raw_name"],
+            detected_prefix,
             tar_arm,
             pair["control_name"],
+            f"Neck {pair['raw_name']}",
         )
-    _kai_add_mapping_if_target_exists(
+    _kai_add_resolved_source_mapping_if_target_exists(
         bones_map,
-        get_src_bone_name(kai_mapping_names["head"]),
+        src_arm,
+        kai_mapping_names["head"],
+        detected_prefix,
         tar_arm,
         c_prefix + head_rig_names["head"],
+        f"Head {kai_mapping_names['head']}",
     )
     if _get_armature_pose_bone(tar_arm, c_prefix + "Shoulder_Left") is not None:
         bones_map[get_src_bone_name("LeftShoulder")] = c_prefix + "Shoulder_Left"
