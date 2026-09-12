@@ -28,6 +28,8 @@ paths_exclude_pattern = [
   ".mypy_cache/",
   "/.git/",
   "/.github/",
+  "/.vs/",
+  "/tools/",
   ".gitignore",
   ".gitattributes",
   "*.pyc",
