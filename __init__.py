@@ -21,7 +21,7 @@
 bl_info = {
     "name": "Mixamo Rig Kai",
     "author": "Original Author: BeyondDev (Tyler Walker); Kai Maintainer: Gonsaku",
-    "version": (0, 6, 1),
+    "version": (0, 6, 3),
     "blender": (4, 2, 0),
     "location": "3D View > Mixamo > Control Rig",
     "description": "Generate a flexible control rig from a Mixamo or reference-mapped humanoid skeleton",
@@ -42,6 +42,8 @@ if "bpy" in locals():
         importlib.reload(kai_reference_template)  # noqa: F821
     if "mixamo_rig_functions" in locals():
         importlib.reload(mixamo_rig_functions)  # noqa: F821
+    if "kai_facial" in locals():
+        importlib.reload(kai_facial)  # noqa: F821
     if "utils" in locals():
         importlib.reload(utils)  # noqa: F821
 
@@ -49,6 +51,7 @@ if "bpy" in locals():
 import bpy  # noqa: F401
 
 from . import (  # noqa: F401
+    kai_facial,
     kai_reference_template,
     mixamo_rig,
     mixamo_rig_functions,
@@ -60,13 +63,15 @@ from . import (  # noqa: F401
 def register():
     mixamo_rig_prefs.register()
     mixamo_rig.register()
+    kai_facial.register()
     mixamo_rig_functions.register()
 
 
 def unregister():
     mixamo_rig_prefs.unregister()
-    mixamo_rig.unregister()
     mixamo_rig_functions.unregister()
+    kai_facial.unregister()
+    mixamo_rig.unregister()
 
 
 if __name__ == "__main__":

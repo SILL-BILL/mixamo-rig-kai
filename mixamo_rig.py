@@ -879,6 +879,15 @@ def _kai_reset_generated_rig(context, reporter=None):
     if rig is None or rig.type != "ARMATURE":
         raise RuntimeError("No armature selected")
 
+    # Facial modules own external Shape Key drivers, so let the module remove
+    # those before the generated control bones disappear.
+    try:
+        from .kai_facial import remove_all_modules
+
+        remove_all_modules(rig)
+    except ImportError:
+        pass
+
     generated_names = _kai_get_generated_bone_names_for_reset(rig)
     generated_name_set = set(generated_names)
 
