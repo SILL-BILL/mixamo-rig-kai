@@ -1,7 +1,10 @@
-"""Blender background smoke test for Kai Facial v0.1 Phase 1.1."""
+"""Blender background regression test for Kai Facial v0.1 Phase 1.2."""
 
 import sys
 import importlib.util
+import json
+import tempfile
+import uuid
 from math import degrees, radians
 from pathlib import Path
 
@@ -69,6 +72,12 @@ def create_fixture():
 
 def check_face(rig, mesh, eyebrow, eyelash):
     meshes = [mesh, eyebrow, eyelash]
+    ui_channels = {
+        channel
+        for _category, _expand_property, channels in kai_facial.FACE_MAPPING_CATEGORIES
+        for channel, _label in channels
+    }
+    assert_true(ui_channels == set(kai_facial.DEFAULT_FACE_SHAPE_KEY_MAPPING), "Mapping UI channel coverage")
     kai_facial._set_active_object(rig)
     for target in meshes:
         bpy.context.scene.kai_face_mesh_candidate = target
@@ -81,17 +90,138 @@ def check_face(rig, mesh, eyebrow, eyelash):
         if target.data.shape_keys.animation_data else 0
         for target in meshes
     )
-    missing = len(meshes) * len(kai_facial.DEFAULT_FACE_SHAPE_KEY_MAPPING) - drivers
+    missing, unassigned = kai_facial._face_mapping_counts(rig, meshes)
     assert_true(controllers == 15, f"controller count: {controllers}")
-    assert_true(drivers == 42 and missing == 78, f"driver result: {drivers}/{missing}")
+    assert_true(drivers == 42 and missing == 0, f"driver/missing result: {drivers}/{missing}")
+    assert_true(unassigned == 78, f"unassigned channel result: {unassigned}")
+    assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face generated state")
+    rig.data["kai_face_module"] = "broken"
+    assert_true(kai_facial.face_module_state(rig) == "PARTIAL", "Face partial state")
+    rig.data["kai_face_module"] = kai_facial.FACE_MODULE_ID
     assert_true(len(mesh.data.shape_keys.animation_data.drivers) == 40, "Face driver count")
     assert_true(len(eyebrow.data.shape_keys.animation_data.drivers) == 2, "multi-mesh driver count")
     assert_true(eyelash.data.shape_keys.animation_data is None, "missing Shape Keys were not skipped")
     mapping_payload = kai_facial.get_face_mesh_mapping(rig)
+    assert_true(mapping_payload["schema_version"] == 2, "Face mapping schema version")
     assert_true(len(mapping_payload["targets"]) == 3, "Face mesh mapping target count")
+    mappings = {target["object"]: target["channels"] for target in mapping_payload["targets"]}
+    assert_true(mappings[mesh.name]["eye_angry_l"] == "Eyelid_Angry_L", "full mapping auto detect")
+    assert_true(mappings[eyebrow.name]["brow_up_l"] == "Brow_Up_L", "partial mapping auto detect")
+    assert_true(mappings[eyebrow.name]["eye_angry_l"] == "", "missing mapping is None")
+    assert_true(not any(mappings[eyelash.name].values()), "Basis-only mesh mapping")
+
+    enum_operator = type("MappingEnumProbe", (), {"object_name": mesh.name})()
+    enum_ids = {item[0] for item in kai_facial._face_shape_key_enum_items(enum_operator, bpy.context)}
+    assert_true("Basis" not in enum_ids, "Basis mapping candidate")
+    assert_true(kai_facial.FACE_MAPPING_NONE in enum_ids, "None mapping candidate")
+
+    mesh.shape_key_add(name="Angry_Eye_Left")
+    assert_true(
+        bpy.ops.kai.set_face_mapping(
+            object_name=mesh.name,
+            channel="eye_angry_l",
+            shape_key="Angry_Eye_Left",
+        ) == {"FINISHED"},
+        "Mapping UI custom Shape Key selection",
+    )
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_sad_l", "")
+    kai_facial.set_face_channel_mapping(rig, mesh, "mouth_down", "")
+    filled = kai_facial.auto_detect_face_mapping(rig, mesh)
+    edited_mapping = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
+    assert_true(filled == 2, f"Auto Detect empty fill count: {filled}")
+    assert_true(edited_mapping["eye_angry_l"] == "Angry_Eye_Left", "Auto Detect overwrote manual mapping")
+    assert_true(edited_mapping["eye_sad_l"] == "Eyelid_Sad_L", "Auto Detect did not fill empty mapping")
+    assert_true(edited_mapping["mouth_down"] == "MouthDown", "Auto Detect known candidate")
+
+    assert_true(
+        bpy.ops.kai.set_face_mapping(
+            object_name=mesh.name,
+            channel="eye_sad_l",
+            shape_key=kai_facial.FACE_MAPPING_NONE,
+        ) == {"FINISHED"},
+        "Mapping UI None selection",
+    )
+    _controllers, _drivers, missing = kai_facial.generate_face_module(rig, meshes)
+    assert_true(missing == 0, f"None counted as Missing: {missing}")
+    keys = mesh.data.shape_keys
+    assert_true(keys.animation_data.drivers.find('key_blocks["Eyelid_Angry_L"].value') is None, "old Kai Driver after remap")
+    assert_true(keys.animation_data.drivers.find('key_blocks["Angry_Eye_Left"].value') is not None, "custom-name mapping Driver")
+    assert_true(keys.animation_data.drivers.find('key_blocks["Eyelid_Sad_L"].value') is None, "None mapping Driver")
+    assert_true(rig.pose.bones.get("Face_EyeExp_L") is not None, "None mapping removed Controller")
+
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Missing_Angry_Left")
+    assert_true(
+        kai_facial._face_mapping_status(rig, mesh, "Missing_Angry_Left") == "INVALID",
+        "Invalid mapping status",
+    )
+    assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "true Missing generation")
+    missing, _unassigned = kai_facial._face_mapping_counts(rig, meshes)
+    assert_true(missing == 1, f"true Missing mapping count: {missing}")
+    assert_true(keys.animation_data.drivers.find('key_blocks["Angry_Eye_Left"].value') is None, "old Driver after invalid mapping")
+
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Eyelid_Angry_L")
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_sad_l", "Eyelid_Sad_L")
+    kai_facial.generate_face_module(rig, meshes)
+    assert_true(keys.animation_data.drivers.find('key_blocks["Eyelid_Angry_L"].value') is not None, "restored mapping Driver")
+    try:
+        kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Basis")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Basis mapping was accepted")
+
+    no_shape = bpy.data.objects.new("KaiNoShapeMesh", bpy.data.meshes.new("KaiNoShapeMesh"))
+    bpy.context.collection.objects.link(no_shape)
+    bpy.context.scene.kai_face_mesh_candidate = no_shape
+    assert_true(bpy.ops.kai.add_face_mesh() == {"FINISHED"}, "Shape Key-less Face Mesh add")
+    no_shape_mapping = kai_facial._mapping_for_mesh(rig, no_shape, kai_facial.get_face_mapping(rig))
+    assert_true(not any(no_shape_mapping.values()), "Shape Key-less mapping defaults")
+    assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "Shape Key-less Face generation")
+    assert_true(bpy.ops.kai.remove_face_mesh() == {"FINISHED"}, "Shape Key-less Face Mesh remove")
+
+    migration_data = bpy.data.armatures.new("KaiMappingMigration")
+    migration_rig = bpy.data.objects.new("KaiMappingMigration", migration_data)
+    bpy.context.collection.objects.link(migration_rig)
+    migration_data[kai_facial.FACE_TARGETS_PROPERTY] = json.dumps({
+        "schema_version": 1,
+        "targets": [{"object": eyebrow.name, "channels": dict(kai_facial.DEFAULT_FACE_SHAPE_KEY_MAPPING)}],
+    })
+    migrated = kai_facial.ensure_face_mesh_mapping(migration_rig, eyebrow)
+    migrated_payload = kai_facial.get_face_mesh_mapping(migration_rig)
+    assert_true(migrated_payload["schema_version"] == 2, "v0.6.3 Mapping migration schema")
+    assert_true(migrated["brow_up_l"] == "Brow_Up_L", "v0.6.3 existing connection migration")
+    assert_true(migrated["eye_angry_l"] == "", "v0.6.3 missing default migration")
+    bpy.data.objects.remove(migration_rig, do_unlink=True)
+
+    none_data = bpy.data.armatures.new("KaiAllNoneMapping")
+    none_rig = bpy.data.objects.new("KaiAllNoneMapping", none_data)
+    bpy.context.collection.objects.link(none_rig)
+    kai_facial._set_active_object(none_rig)
+    bpy.ops.object.mode_set(mode="EDIT")
+    none_head = none_data.edit_bones.new("Head")
+    none_head.head = (0.0, 0.0, 0.0)
+    none_head.tail = (0.0, 0.0, 1.0)
+    bpy.ops.object.mode_set(mode="OBJECT")
+    controllers, drivers, missing = kai_facial.generate_face_module(none_rig, [eyelash])
+    assert_true((controllers, drivers, missing) == (15, 0, 0), "all-None Mapping generation")
+    assert_true(kai_facial._face_mapping_counts(none_rig, [eyelash]) == (0, 40), "all-None status counts")
+    assert_true(none_rig.pose.bones.get("Face_EyeExp_L") is not None, "all-None Controller generation")
+    kai_facial.remove_face_module(none_rig)
+    bpy.data.objects.remove(none_rig, do_unlink=True)
+    kai_facial._set_active_object(rig)
+    face_center, facial_base_scale = kai_facial._face_layout_basis(rig)
+    generated_root = rig.pose.bones[kai_facial.FACE_ROOT]
+    assert_true(
+        (generated_root.bone.head_local - face_center).length < 0.0001,
+        "Face root Head-relative initial position",
+    )
+    assert_true(
+        all(abs(value - facial_base_scale) < 0.0001 for value in generated_root.scale),
+        "single facial base scale",
+    )
     for spec in kai_facial.FACE_CONTROLLERS:
         pbone = rig.pose.bones[spec["name"]]
-        expected_position = Vector(spec["pos"])
+        expected_position = kai_facial._face_layout_position(spec["pos"], face_center)
         assert_true(
             (pbone.bone.head_local - expected_position).length < 0.0001,
             f"reference UI position: {pbone.name}",
@@ -214,6 +344,12 @@ def check_face(rig, mesh, eyebrow, eyelash):
         name: (rig.pose.bones[name].location.copy(), rig.pose.bones[name].scale.copy())
         for name in kai_facial.FACE_PART_ROOT_SHAPES
     }
+    face_bone_names = [item[0] for item in kai_facial.FACE_ANCHORS]
+    face_bone_names += [spec["name"] for spec in kai_facial.FACE_CONTROLLERS]
+    saved_rest_positions = {
+        name: (rig.data.bones[name].head_local.copy(), rig.data.bones[name].tail_local.copy())
+        for name in face_bone_names
+    }
     kai_facial.generate_face_module(rig, meshes)
     assert_true(len(mesh.data.shape_keys.animation_data.drivers) == 40, "Face idempotence")
     rebuilt_root = rig.pose.bones[kai_facial.FACE_ROOT]
@@ -227,11 +363,19 @@ def check_face(rig, mesh, eyebrow, eyelash):
         rebuilt_part = rig.pose.bones[name]
         assert_true((rebuilt_part.location - location).length < 0.0001, f"part root location rebuild: {name}")
         assert_true((rebuilt_part.scale - scale).length < 0.0001, f"part root scale rebuild: {name}")
+    for name, (head, tail) in saved_rest_positions.items():
+        rebuilt_bone = rig.data.bones[name]
+        assert_true((rebuilt_bone.head_local - head).length < 0.0001, f"Face rest head rebuild: {name}")
+        assert_true((rebuilt_bone.tail_local - tail).length < 0.0001, f"Face rest tail rebuild: {name}")
 
     conflict = create_mesh("KaiConflictMesh", ("Brow_Up_L",))
     conflict_path = 'key_blocks["Brow_Up_L"].value'
     conflict_curve = conflict.data.shape_keys.driver_add(conflict_path)
     conflict_curve.driver.expression = "0.5"
+    assert_true(
+        kai_facial._face_mapping_status(rig, conflict, "Brow_Up_L") == "CONFLICT",
+        "non-Kai Driver Conflict UI status",
+    )
     try:
         kai_facial.generate_face_module(rig, [*meshes, conflict])
     except RuntimeError as exc:
@@ -268,6 +412,10 @@ def check_eye(rig):
         raise AssertionError("Missing Head Bone was accepted")
     result = bpy.ops.kai.generate_eye_module()
     assert_true(result == {"FINISHED"}, f"Object Mode Head-field Eye generation: {result}")
+    assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye generated state")
+    rig.data["kai_eye_module"] = "broken"
+    assert_true(kai_facial.eye_module_state(rig) == "PARTIAL", "Eye partial state")
+    rig.data["kai_eye_module"] = kai_facial.EYE_MODULE_ID
     for name in (kai_facial.EYE_TARGET_ROOT, *kai_facial.EYE_TARGETS.values(), kai_facial.EYE_CENTER):
         assert_true(not rig.data.bones[name].use_deform, f"Eye deform: {name}")
     assert_true(rig.data.bones[kai_facial.EYE_TARGET_ROOT].parent.name == "Head", "Eye root parent")
@@ -372,9 +520,94 @@ def check_eye(rig):
     assert_true(rig.pose.bones["Ctrl_Head"].constraints.get("KAI Eye Direct Adapter") is None, "Legacy adapter remains")
 
 
+def check_mapping_persistence(rig, mesh, eyebrow, eyelash):
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "")
+    kai_facial.set_face_channel_mapping(rig, mesh, "mouth_left", "MouthRight")
+    rig_name = rig.name
+    mesh_name = mesh.name
+    eyebrow_name = eyebrow.name
+    eyelash_name = eyelash.name
+    expected_meshes = [mesh.name, eyebrow.name, eyelash.name]
+    filepath = Path(tempfile.gettempdir()) / f"kai_facial_mapping_{uuid.uuid4().hex}.blend"
+    try:
+        bpy.ops.wm.save_as_mainfile(filepath=str(filepath), check_existing=False)
+        kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Eyelid_Angry_L")
+        kai_facial.set_face_channel_mapping(rig, mesh, "mouth_left", "MouthLeft")
+        bpy.context.scene.kai_face_meshes.clear()
+        bpy.ops.wm.open_mainfile(filepath=str(filepath))
+
+        rig = bpy.data.objects[rig_name]
+        mesh = bpy.data.objects[mesh_name]
+        eyebrow = bpy.data.objects[eyebrow_name]
+        eyelash = bpy.data.objects[eyelash_name]
+        restored = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
+        restored_meshes = [item.object.name for item in bpy.context.scene.kai_face_meshes if item.object]
+        assert_true(restored["eye_angry_l"] == "", "None mapping persistence")
+        assert_true(restored["mouth_left"] == "MouthRight", "manual mapping persistence")
+        assert_true(restored_meshes == expected_meshes, "Face Mesh list persistence")
+        assert_true(kai_facial.get_face_mesh_mapping(rig)["schema_version"] == 2, "schema persistence")
+        return rig, mesh, eyebrow, eyelash
+    finally:
+        if filepath.exists():
+            filepath.unlink()
+
+
+def check_independent_module_removal(rig, mesh, eyebrow, eyelash):
+    meshes = [mesh, eyebrow, eyelash]
+    kai_facial._set_active_object(rig)
+    assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "Face regenerate before remove cases")
+    assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face state before remove")
+    assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye state before remove")
+    mapping_before = rig.data[kai_facial.FACE_TARGETS_PROPERTY]
+    mesh_list_before = [item.object.name for item in bpy.context.scene.kai_face_meshes if item.object]
+    face_bones_before = {
+        bone.name for bone in rig.data.bones
+        if bone.get("kai_module") == kai_facial.FACE_MODULE_ID
+    }
+
+    assert_true(bpy.ops.kai.remove_eye_module() == {"FINISHED"}, "Remove Eye operator")
+    assert_true(kai_facial.eye_module_state(rig) == "NOT_GENERATED", "Eye state after remove")
+    assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face affected by Eye remove")
+    assert_true(face_bones_before <= set(rig.data.bones.keys()), "Face bones affected by Eye remove")
+    assert_true(rig.data[kai_facial.FACE_TARGETS_PROPERTY] == mapping_before, "Mapping affected by Eye remove")
+
+    assert_true(bpy.ops.kai.generate_eye_module() == {"FINISHED"}, "Regenerate Eye after remove")
+    assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye state after regenerate")
+    eye_bones_before = {
+        name: rig.data.bones[name].head_local.copy()
+        for name in (kai_facial.EYE_CENTER, kai_facial.EYE_TARGET_ROOT, *kai_facial.EYE_TARGETS.values(), *kai_facial.EYE_OUTPUTS.values())
+    }
+
+    assert_true(bpy.ops.kai.remove_face_module() == {"FINISHED"}, "Remove Face operator")
+    assert_true(kai_facial.face_module_state(rig) == "NOT_GENERATED", "Face state after remove")
+    assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye affected by Face remove")
+    assert_true(rig.data[kai_facial.FACE_TARGETS_PROPERTY] == mapping_before, "Face Mapping removed")
+    assert_true(
+        [item.object.name for item in bpy.context.scene.kai_face_meshes if item.object] == mesh_list_before,
+        "Face Mesh list removed",
+    )
+    for name, head in eye_bones_before.items():
+        assert_true((rig.data.bones[name].head_local - head).length < 0.0001, f"Eye changed by Face remove: {name}")
+
+    assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "Generate Face after remove")
+    assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face state after restore")
+    assert_true(rig.data[kai_facial.FACE_TARGETS_PROPERTY] == mapping_before, "Mapping changed after Face restore")
+    restored = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
+    assert_true(restored["eye_angry_l"] == "", "None changed through remove/regenerate")
+    assert_true(restored["mouth_left"] == "MouthRight", "custom mapping changed through remove/regenerate")
+
+    kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Eyelid_Angry_L")
+    kai_facial.set_face_channel_mapping(rig, mesh, "mouth_left", "MouthLeft")
+    assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "Restore default mappings")
+
+
 rig, mesh, eyebrow, eyelash = create_fixture()
+assert_true(kai_facial.face_module_state(rig) == "NOT_GENERATED", "initial Face state")
+assert_true(kai_facial.eye_module_state(rig) == "NOT_GENERATED", "initial Eye state")
 check_face(rig, mesh, eyebrow, eyelash)
 check_eye(rig)
+rig, mesh, eyebrow, eyelash = check_mapping_persistence(rig, mesh, eyebrow, eyelash)
+check_independent_module_removal(rig, mesh, eyebrow, eyelash)
 bones, drivers = kai_facial.remove_all_modules(rig)
 assert_true(drivers == 43, f"removed drivers: {drivers}")
 assert_true(not any(bone.get("kai_module") for bone in rig.data.bones), "module bones remain")

@@ -1,4 +1,4 @@
-"""Mixamo Rig Kai Eye / Face modules (Facial v0.1, Phase 1.1)."""
+"""Mixamo Rig Kai Eye / Face modules (Facial v0.1, Phase 1.2)."""
 
 import json
 from math import radians
@@ -31,6 +31,8 @@ FACE_FOLLOW_PROPERTY = "kai_face_head_follow"
 FACE_MAPPING_PROPERTY = "kai_face_shape_key_mapping"
 FACE_TARGET_PROPERTY = "kai_face_target_object"  # Legacy Phase 1 single target.
 FACE_TARGETS_PROPERTY = "kai_face_mesh_mapping"
+FACE_MAPPING_SCHEMA_VERSION = 2
+FACE_MAPPING_NONE = "__KAI_NONE__"
 
 DEFAULT_EYE_IK_LIMITS = {
     "x": (-radians(30.0), radians(30.0)),
@@ -97,6 +99,67 @@ DEFAULT_FACE_SHAPE_KEY_MAPPING = {
     "mouth_corner_down_r": "Mouth_CornerDown_R",
 }
 
+FACE_MAPPING_CATEGORIES = (
+    (
+        "Brow",
+        "kai_face_mapping_expand_brow",
+        (
+            ("brow_up_l", "Brow Up L"),
+            ("brow_up_r", "Brow Up R"),
+            ("brow_down_l", "Brow Down L"),
+            ("brow_down_r", "Brow Down R"),
+            ("brow_angry_l", "Brow Angry L"),
+            ("brow_angry_r", "Brow Angry R"),
+            ("brow_sad_l", "Brow Sad L"),
+            ("brow_sad_r", "Brow Sad R"),
+            ("brow_smile_l", "Brow Smile L"),
+            ("brow_smile_r", "Brow Smile R"),
+            ("brow_serious_l", "Brow Serious L"),
+            ("brow_serious_r", "Brow Serious R"),
+        ),
+    ),
+    (
+        "Eyelid / Eye",
+        "kai_face_mapping_expand_eye",
+        (
+            ("eye_close_l", "Eyelid Close L"),
+            ("eye_close_r", "Eyelid Close R"),
+            ("eye_smile_l", "Eyelid Smile L"),
+            ("eye_smile_r", "Eyelid Smile R"),
+            ("eye_angry_l", "Eyelid Angry L"),
+            ("eye_angry_r", "Eyelid Angry R"),
+            ("eye_sad_l", "Eyelid Sad L"),
+            ("eye_sad_r", "Eyelid Sad R"),
+            ("eye_surprise_l", "Eyelid Surprise L"),
+            ("eye_surprise_r", "Eyelid Surprise R"),
+            ("eye_jito_l", "Eyelid Jito L"),
+            ("eye_jito_r", "Eyelid Jito R"),
+            ("eye_squint_l", "Eyelid Squint L"),
+            ("eye_squint_r", "Eyelid Squint R"),
+            ("eye_outer_down_l", "Eye Outer Corner Down L"),
+            ("eye_outer_down_r", "Eye Outer Corner Down R"),
+        ),
+    ),
+    (
+        "Mouth",
+        "kai_face_mapping_expand_mouth",
+        (
+            ("mouth_left", "Mouth Left"),
+            ("mouth_right", "Mouth Right"),
+            ("mouth_up", "Mouth Up"),
+            ("mouth_down", "Mouth Down"),
+            ("mouth_corner_up_l", "Mouth Corner Up L"),
+            ("mouth_corner_up_r", "Mouth Corner Up R"),
+            ("mouth_corner_down_l", "Mouth Corner Down L"),
+            ("mouth_corner_down_r", "Mouth Corner Down R"),
+            ("mouth_spread_l", "Mouth Spread L"),
+            ("mouth_spread_r", "Mouth Spread R"),
+            ("mouth_narrow_l", "Mouth Narrow L"),
+            ("mouth_narrow_r", "Mouth Narrow R"),
+        ),
+    ),
+)
+
 
 # A controller declaration is reusable by the future simple-slider generator.
 # axes contains normalized UI ranges; missing axes are locked at zero.
@@ -126,6 +189,13 @@ FACE_ANCHORS = (
     ("Face_BrowRoot_R", FACE_ROOT, (1.9, 0.0, 5.5)),
     ("Face_MouthRoot", FACE_ROOT, (3.0, 0.0, 0.4)),
 )
+
+# The Phase 1.1 layout is authored in normalized controller units around this
+# point.  One parent scale converts every position, shape, and controller
+# movement into character-sized armature-local units.
+FACE_LAYOUT_ORIGIN = Vector((3.0, 0.0, 3.0))
+FACE_LAYOUT_EYE_HALF_WIDTH = 1.1
+FACE_EYE_HALF_WIDTH_PER_HEAD = 0.18
 
 FACE_PART_ROOT_SHAPES = {
     "Face_BrowRoot_L": ("cs_square", (0.61, 1.0, 0.61)),
@@ -324,6 +394,56 @@ def _snapshot_eye_rebuild_data(rig, head_name):
     return bones, limits
 
 
+def _snapshot_face_rebuild_bones(rig):
+    root = (
+        rig.data.edit_bones.get(FACE_ROOT)
+        if rig.mode == "EDIT"
+        else rig.data.bones.get(FACE_ROOT)
+    )
+    if root is None or root.get("kai_module") != FACE_MODULE_ID:
+        return {}
+    snapshots = {}
+    names = [name for name, _parent, _position in FACE_ANCHORS]
+    names.extend(spec["name"] for spec in FACE_CONTROLLERS)
+    for name in names:
+        bone = (
+            rig.data.edit_bones.get(name)
+            if rig.mode == "EDIT"
+            else rig.data.bones.get(name)
+        )
+        if bone is None or bone.get("kai_module") != FACE_MODULE_ID:
+            continue
+        snapshots[name] = {
+            "head": (bone.head if rig.mode == "EDIT" else bone.head_local).copy(),
+            "tail": (bone.tail if rig.mode == "EDIT" else bone.tail_local).copy(),
+        }
+    return snapshots
+
+
+def _face_layout_basis(rig):
+    mapped_name = rig.data.get("kai_head_name", "")
+    head = rig.data.bones.get(mapped_name) if mapped_name else None
+    if head is None:
+        head = rig.data.bones.get("Head") or rig.data.bones.get("Ctrl_Head")
+    if head is None:
+        raise RuntimeError("Face Module requires a valid Head bone in Reference Mapping")
+
+    head_length = max(head.length, 1.0e-6)
+    local_z = head.matrix_local.to_3x3().col[2].normalized()
+    face_center = head.head_local + (head.tail_local - head.head_local) * 0.42
+    face_center += local_z * head_length * 0.1
+    base_scale = (
+        head_length
+        * FACE_EYE_HALF_WIDTH_PER_HEAD
+        / FACE_LAYOUT_EYE_HALF_WIDTH
+    )
+    return face_center, base_scale
+
+
+def _face_layout_position(position, center):
+    return center + Vector(position) - FACE_LAYOUT_ORIGIN
+
+
 def _add_local_limits(pbone, axes):
     constraint = pbone.constraints.new("LIMIT_LOCATION")
     constraint.name = "KAI Normalized Location"
@@ -340,6 +460,17 @@ def _add_local_limits(pbone, axes):
 
 def _shape_keys(mesh):
     return getattr(getattr(mesh, "data", None), "shape_keys", None)
+
+
+def _shape_key_names(mesh):
+    keys = _shape_keys(mesh)
+    if keys is None:
+        return set()
+    return {
+        key.name
+        for key in keys.key_blocks
+        if key != keys.reference_key and key.name != "Basis"
+    }
 
 
 def get_face_mapping(rig):
@@ -362,37 +493,130 @@ def get_face_mesh_mapping(rig):
         try:
             payload = json.loads(raw)
             if isinstance(payload, dict) and isinstance(payload.get("targets"), list):
-                return payload
+                return _normalize_face_mesh_mapping(rig, payload)
         except (TypeError, ValueError):
             pass
-    return {"schema_version": 1, "targets": []}
+    return {"schema_version": FACE_MAPPING_SCHEMA_VERSION, "targets": []}
+
+
+def _detected_face_mapping(mesh, candidates=None):
+    available = _shape_key_names(mesh)
+    candidates = candidates or DEFAULT_FACE_SHAPE_KEY_MAPPING
+    return {
+        channel: candidate if candidate and candidate in available else ""
+        for channel, default_name in DEFAULT_FACE_SHAPE_KEY_MAPPING.items()
+        for candidate in (str(candidates.get(channel, default_name)),)
+    }
+
+
+def _normalize_face_mesh_mapping(rig, payload):
+    """Migrate v0.6.3 mappings without preserving its nonexistent defaults."""
+    try:
+        source_version = int(payload.get("schema_version", 1) or 1)
+    except (TypeError, ValueError):
+        source_version = 1
+    fallback = get_face_mapping(rig)
+    targets = []
+    seen = set()
+    for source in payload.get("targets", []):
+        if not isinstance(source, dict):
+            continue
+        object_name = str(source.get("object", ""))
+        if not object_name or object_name in seen:
+            continue
+        seen.add(object_name)
+        mesh = bpy.data.objects.get(object_name)
+        stored = source.get("channels", {})
+        stored = stored if isinstance(stored, dict) else {}
+        if source_version < FACE_MAPPING_SCHEMA_VERSION:
+            available = _shape_key_names(mesh)
+            channels = {}
+            for channel, default_name in DEFAULT_FACE_SHAPE_KEY_MAPPING.items():
+                value = str(stored.get(channel, fallback.get(channel, default_name)) or "")
+                channels[channel] = value if value != "Basis" and value in available else ""
+        else:
+            channels = {
+                channel: str(stored.get(channel, "") or "")
+                for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING
+            }
+        targets.append({"object": object_name, "channels": channels})
+    return {"schema_version": FACE_MAPPING_SCHEMA_VERSION, "targets": targets}
+
+
+def _find_face_mapping_target(payload, object_name):
+    return next(
+        (target for target in payload["targets"] if target.get("object") == object_name),
+        None,
+    )
+
+
+def _write_face_mesh_mapping(rig, payload):
+    normalized = _normalize_face_mesh_mapping(rig, payload)
+    rig.data[FACE_TARGETS_PROPERTY] = json.dumps(normalized, sort_keys=True)
+    return normalized
+
+
+def ensure_face_mesh_mapping(rig, mesh):
+    payload = get_face_mesh_mapping(rig)
+    target = _find_face_mapping_target(payload, mesh.name)
+    if target is None:
+        target = {
+            "object": mesh.name,
+            "channels": _detected_face_mapping(mesh, get_face_mapping(rig)),
+        }
+        payload["targets"].append(target)
+    payload = _write_face_mesh_mapping(rig, payload)
+    return dict(_find_face_mapping_target(payload, mesh.name)["channels"])
+
+
+def set_face_channel_mapping(rig, mesh, channel, shape_name):
+    if channel not in DEFAULT_FACE_SHAPE_KEY_MAPPING:
+        raise ValueError(f"Unknown Kai Facial Channel: {channel}")
+    shape_name = str(shape_name or "")
+    if shape_name == "Basis":
+        raise ValueError("Basis cannot be used as a Facial mapping target")
+    payload = get_face_mesh_mapping(rig)
+    target = _find_face_mapping_target(payload, mesh.name)
+    if target is None:
+        ensure_face_mesh_mapping(rig, mesh)
+        payload = get_face_mesh_mapping(rig)
+        target = _find_face_mapping_target(payload, mesh.name)
+    target["channels"][channel] = shape_name
+    _write_face_mesh_mapping(rig, payload)
+
+
+def auto_detect_face_mapping(rig, mesh):
+    mapping = ensure_face_mesh_mapping(rig, mesh)
+    detected = _detected_face_mapping(mesh, get_face_mapping(rig))
+    changed = 0
+    for channel, shape_name in detected.items():
+        if not mapping.get(channel) and shape_name:
+            mapping[channel] = shape_name
+            changed += 1
+    _store_face_mesh_mapping(rig, ((mesh, mapping),))
+    return changed
 
 
 def _mapping_for_mesh(rig, mesh, fallback):
     payload = get_face_mesh_mapping(rig)
-    for target in payload["targets"]:
-        if target.get("object") != mesh.name:
-            continue
-        mapping = dict(fallback)
-        stored = target.get("channels", {})
-        if isinstance(stored, dict):
-            mapping.update({str(key): str(value) for key, value in stored.items()})
-        return mapping
-    return dict(fallback)
+    target = _find_face_mapping_target(payload, mesh.name)
+    if target is not None:
+        return dict(target["channels"])
+    return _detected_face_mapping(mesh, fallback)
 
 
 def _store_face_mesh_mapping(rig, mesh_mappings):
-    payload = {
-        "schema_version": 1,
-        "targets": [
-            {
-                "object": mesh.name,
-                "channels": mapping,
-            }
-            for mesh, mapping in mesh_mappings
-        ],
-    }
-    rig.data[FACE_TARGETS_PROPERTY] = json.dumps(payload, sort_keys=True)
+    payload = get_face_mesh_mapping(rig)
+    for mesh, mapping in mesh_mappings:
+        target = _find_face_mapping_target(payload, mesh.name)
+        if target is None:
+            target = {"object": mesh.name, "channels": {}}
+            payload["targets"].append(target)
+        target["channels"] = {
+            channel: str(mapping.get(channel, "") or "")
+            for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING
+        }
+    _write_face_mesh_mapping(rig, payload)
 
 
 def _is_kai_face_driver(fcurve, rig=None):
@@ -554,6 +778,50 @@ def remove_all_modules(rig):
     return face_bones + eye_bones, drivers
 
 
+def _module_state(rig, module_id, bone_names):
+    marker_name = "kai_face_module" if module_id == FACE_MODULE_ID else "kai_eye_module"
+    marker_valid = rig.data.get(marker_name) == module_id
+    matching = sum(
+        rig.data.bones.get(name) is not None
+        and rig.data.bones[name].get("kai_module") == module_id
+        for name in bone_names
+    )
+    if marker_valid and matching == len(bone_names):
+        return "GENERATED"
+    if marker_valid or matching:
+        return "PARTIAL"
+    return "NOT_GENERATED"
+
+
+def face_module_state(rig):
+    names = [name for name, _parent, _position in FACE_ANCHORS]
+    names.extend(spec["name"] for spec in FACE_CONTROLLERS)
+    return _module_state(rig, FACE_MODULE_ID, names)
+
+
+def eye_module_state(rig):
+    names = [EYE_TARGET_ROOT, EYE_CENTER, *EYE_TARGETS.values(), *EYE_OUTPUTS.values()]
+    return _module_state(rig, EYE_MODULE_ID, names)
+
+
+def _face_mapping_counts(rig, meshes):
+    fallback = get_face_mapping(rig)
+    missing = 0
+    unassigned = 0
+    for mesh in meshes:
+        if mesh is None or mesh.type != "MESH":
+            continue
+        mapping = _mapping_for_mesh(rig, mesh, fallback)
+        names = _shape_key_names(mesh)
+        for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING:
+            shape_name = mapping.get(channel, "")
+            if not shape_name:
+                unassigned += 1
+            elif shape_name not in names:
+                missing += 1
+    return missing, unassigned
+
+
 def _validate_face_targets(rig, meshes, fallback_mapping):
     valid_meshes = []
     seen = set()
@@ -563,12 +831,14 @@ def _validate_face_targets(rig, meshes, fallback_mapping):
         if mesh is None or mesh.name in seen:
             continue
         seen.add(mesh.name)
-        if mesh.type != "MESH" or _shape_keys(mesh) is None:
+        if mesh.type != "MESH":
             continue
         valid_meshes.append(mesh)
         mapping = _mapping_for_mesh(rig, mesh, fallback_mapping)
         available[mesh.name] = []
         keys = _shape_keys(mesh)
+        if keys is None:
+            continue
         for spec in FACE_OUTPUTS:
             shape_name = mapping.get(spec[0], "")
             if not shape_name or keys.key_blocks.get(shape_name) is None:
@@ -580,9 +850,7 @@ def _validate_face_targets(rig, meshes, fallback_mapping):
     if conflicts:
         raise RuntimeError("Existing non-Kai drivers: " + ", ".join(sorted(set(conflicts))))
     if not valid_meshes:
-        raise RuntimeError("Add at least one mesh with Shape Keys to Face Meshes")
-    if not any(available.values()):
-        raise RuntimeError("No mapped Phase 1 Shape Keys were found on registered Face Meshes")
+        raise RuntimeError("Add at least one mesh to Face Meshes")
     return valid_meshes, available
 
 
@@ -602,6 +870,8 @@ def _validate_module_bone_names(rig, module_id, names):
 
 def generate_face_module(rig, meshes):
     mapping = get_face_mapping(rig)
+    previous_bones = _snapshot_face_rebuild_bones(rig)
+    face_center, base_scale = _face_layout_basis(rig)
     root_transforms = {
         name: _snapshot_pose_transform(rig.pose.bones.get(name))
         for name, _parent, _position in FACE_ANCHORS
@@ -624,9 +894,28 @@ def generate_face_module(rig, meshes):
 
     bpy.ops.object.mode_set(mode="EDIT")
     for name, parent, position in FACE_ANCHORS:
-        _create_edit_bone(rig, name, position, 0.1, parent, FACE_ROOT_COLLECTION)
+        _create_edit_bone(
+            rig,
+            name,
+            _face_layout_position(position, face_center),
+            0.1,
+            parent,
+            FACE_ROOT_COLLECTION,
+        )
     for spec in FACE_CONTROLLERS:
-        _create_edit_bone(rig, spec["name"], spec["pos"], spec["length"], spec["parent"], FACE_COLLECTION)
+        _create_edit_bone(
+            rig,
+            spec["name"],
+            _face_layout_position(spec["pos"], face_center),
+            spec["length"],
+            spec["parent"],
+            FACE_COLLECTION,
+        )
+    for name, snapshot in previous_bones.items():
+        bone = rig.data.edit_bones.get(name)
+        if bone is not None:
+            bone.head = snapshot["head"]
+            bone.tail = snapshot["tail"]
     bpy.ops.object.mode_set(mode="POSE")
 
     for name, _parent, _position in FACE_ANCHORS:
@@ -642,6 +931,8 @@ def generate_face_module(rig, meshes):
         _set_face_ui_color(pbone)
         _restore_pose_transform(pbone, root_transforms.get(name))
     root = rig.pose.bones[FACE_ROOT]
+    if root_transforms.get(FACE_ROOT) is None:
+        root.scale = (base_scale, base_scale, base_scale)
     _set_front_facing_custom_shape(root, "cs_square", (1.5, 1.0, 2.5))
     for spec in FACE_CONTROLLERS:
         pbone = rig.pose.bones[spec["name"]]
@@ -681,20 +972,24 @@ def generate_face_module(rig, meshes):
         driver.expression = "min(max(kai_follow, 0.0), 1.0)"
 
     connected = []
+    missing = 0
     for mesh, target_mapping in mesh_mappings:
         keys = _shape_keys(mesh)
         for spec in FACE_OUTPUTS:
             shape_name = target_mapping.get(spec[0], "")
-            if shape_name and keys.key_blocks.get(shape_name) is not None:
-                _add_shape_driver(keys, shape_name, rig, spec)
-                connected.append((mesh.name, shape_name))
+            if not shape_name:
+                continue
+            if keys is None or keys.key_blocks.get(shape_name) is None:
+                missing += 1
+                continue
+            _add_shape_driver(keys, shape_name, rig, spec)
+            connected.append((mesh.name, shape_name))
 
     rig.data[FACE_MAPPING_PROPERTY] = json.dumps(mapping, sort_keys=True)
     _store_face_mesh_mapping(rig, mesh_mappings)
     rig.data["kai_face_module"] = FACE_MODULE_ID
     bpy.ops.object.mode_set(mode="OBJECT")
-    possible = len(valid_meshes) * len(DEFAULT_FACE_SHAPE_KEY_MAPPING)
-    return len(FACE_CONTROLLERS), len(connected), possible - len(connected)
+    return len(FACE_CONTROLLERS), len(connected), missing
 
 
 def _get_eye_head_bone(armature):
@@ -835,6 +1130,41 @@ def _registered_face_meshes(scene):
     ]
 
 
+def _selected_face_mesh(scene):
+    if not scene.kai_face_meshes:
+        return None
+    index = min(max(scene.kai_face_mesh_index, 0), len(scene.kai_face_meshes) - 1)
+    mesh = scene.kai_face_meshes[index].object
+    return mesh if mesh is not None and mesh.type == "MESH" else None
+
+
+def _face_mapping_status(rig, mesh, shape_name):
+    if not shape_name:
+        return "NONE"
+    keys = _shape_keys(mesh)
+    if keys is None or shape_name not in _shape_key_names(mesh):
+        return "INVALID"
+    driver = _find_driver(keys, _driver_path(shape_name))
+    if driver is not None and not _is_kai_face_driver(driver, rig):
+        return "CONFLICT"
+    return "MAPPED"
+
+
+_SHAPE_KEY_ENUM_CACHE = {}
+
+
+def _face_shape_key_enum_items(operator, _context):
+    mesh = bpy.data.objects.get(operator.object_name)
+    names = sorted(_shape_key_names(mesh)) if mesh is not None else []
+    items = [(FACE_MAPPING_NONE, "None", "Leave this Kai Facial Channel disconnected", "X", 0)]
+    items.extend(
+        (name, name, f"Map to {mesh.name}.{name}", "SHAPEKEY_DATA", index)
+        for index, name in enumerate(names, 1)
+    )
+    _SHAPE_KEY_ENUM_CACHE[operator.object_name] = items
+    return items
+
+
 class KAI_PG_face_mesh_item(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
 
@@ -877,6 +1207,9 @@ class KAI_OT_add_face_mesh(bpy.types.Operator):
         item.object = mesh
         scene.kai_face_mesh_index = len(scene.kai_face_meshes) - 1
         scene.kai_face_mesh_candidate = None
+        rig = _active_armature(context)
+        if rig is not None:
+            ensure_face_mesh_mapping(rig, mesh)
         return {"FINISHED"}
 
 
@@ -898,6 +1231,60 @@ class KAI_OT_remove_face_mesh(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class KAI_OT_set_face_mapping(bpy.types.Operator):
+    bl_idname = "kai.set_face_mapping"
+    bl_label = "Select Shape Key"
+    bl_description = "Select the Shape Key driven by this Kai Facial Channel"
+    bl_options = {"REGISTER", "UNDO"}
+    bl_property = "shape_key"
+
+    object_name: bpy.props.StringProperty(options={"HIDDEN"})
+    channel: bpy.props.StringProperty(options={"HIDDEN"})
+    shape_key: bpy.props.EnumProperty(items=_face_shape_key_enum_items, options={"SKIP_SAVE"})
+
+    def invoke(self, context, _event):
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        mesh = bpy.data.objects.get(self.object_name)
+        if rig is None or mesh is None or mesh.type != "MESH":
+            self.report({"ERROR"}, "Select a Kai Rig and a valid Face Mesh")
+            return {"CANCELLED"}
+        shape_name = "" if self.shape_key == FACE_MAPPING_NONE else self.shape_key
+        if shape_name and shape_name not in _shape_key_names(mesh):
+            self.report({"ERROR"}, f"Shape Key not found: {mesh.name}.{shape_name}")
+            return {"CANCELLED"}
+        try:
+            set_face_channel_mapping(rig, mesh, self.channel, shape_name)
+        except ValueError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        return {"FINISHED"}
+
+
+class KAI_OT_auto_detect_face_mapping(bpy.types.Operator):
+    bl_idname = "kai.auto_detect_face_mapping"
+    bl_label = "Auto Detect"
+    bl_description = "Fill only empty mappings using known Phase 1 Shape Key names"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _active_armature(context) is not None and _selected_face_mesh(context.scene) is not None
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        mesh = _selected_face_mesh(context.scene)
+        changed = auto_detect_face_mapping(rig, mesh)
+        if changed:
+            self.report({"INFO"}, f"Auto Detect filled {changed} empty mappings for {mesh.name}")
+        else:
+            self.report({"INFO"}, f"No empty mappings detected for {mesh.name}")
+        return {"FINISHED"}
+
+
 class KAI_OT_generate_face_module(bpy.types.Operator):
     bl_idname = "kai.generate_face_module"
     bl_label = "Generate Face Module"
@@ -912,14 +1299,17 @@ class KAI_OT_generate_face_module(bpy.types.Operator):
         rig = _active_armature(context)
         meshes = _registered_face_meshes(context.scene)
         try:
-            controllers, drivers, missing = generate_face_module(rig, meshes)
+            _controllers, drivers, _missing = generate_face_module(rig, meshes)
         except RuntimeError as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
+        missing, unassigned = _face_mapping_counts(rig, meshes)
         if missing:
-            self.report({"WARNING"}, f"Face Module: {drivers} drivers; {missing} mapped Shape Keys missing")
+            self.report({"WARNING"}, f"Face Module: {drivers} drivers created; {missing} mappings missing")
+        elif unassigned:
+            self.report({"INFO"}, f"Face Module: {drivers} drivers created; {unassigned} channels unassigned")
         else:
-            self.report({"INFO"}, f"Face Module: {controllers} controllers, {drivers} drivers")
+            self.report({"INFO"}, f"Face Module: {drivers} drivers created")
         return {"FINISHED"}
 
 
@@ -945,19 +1335,38 @@ class KAI_OT_generate_eye_module(bpy.types.Operator):
         return {"FINISHED"}
 
 
-class KAI_OT_remove_facial_modules(bpy.types.Operator):
-    bl_idname = "kai.remove_facial_modules"
-    bl_label = "Remove Eye / Face Modules"
-    bl_description = "Remove only Kai Facial module bones, constraints, and drivers"
+class KAI_OT_remove_eye_module(bpy.types.Operator):
+    bl_idname = "kai.remove_eye_module"
+    bl_label = "Remove Eye Module"
+    bl_description = "Remove only Kai Eye module bones and constraints"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
-        return _active_armature(context) is not None
+        rig = _active_armature(context)
+        return rig is not None and eye_module_state(rig) != "NOT_GENERATED"
 
     def execute(self, context):
-        bones, drivers = remove_all_modules(_active_armature(context))
-        self.report({"INFO"}, f"Removed {bones} bones and {drivers} drivers")
+        bones = remove_eye_module(_active_armature(context))
+        self.report({"INFO"}, f"Removed Eye Module: {bones} bones")
+        return {"FINISHED"}
+
+
+class KAI_OT_remove_face_module(bpy.types.Operator):
+    bl_idname = "kai.remove_face_module"
+    bl_label = "Remove Face Module"
+    bl_description = "Remove only Kai Face module bones and Shape Key drivers; keep mappings"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        rig = _active_armature(context)
+        return rig is not None and face_module_state(rig) != "NOT_GENERATED"
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        bones, drivers = remove_face_module(rig, _registered_face_meshes(context.scene))
+        self.report({"INFO"}, f"Removed Face Module: {bones} bones, {drivers} drivers")
         return {"FINISHED"}
 
 
@@ -975,8 +1384,26 @@ class KAI_PT_facial(Panel):
         layout.use_property_decorate = False
         rig = _active_armature(context)
 
+        eye = layout.box()
+        eye.label(text="Eye Module")
+        eye_state = eye_module_state(rig) if rig is not None else "NOT_GENERATED"
+        if rig is not None:
+            eye.prop_search(rig.data, EYE_HEAD_PROPERTY, rig.data, "bones", text="Head Bone")
+        else:
+            eye.label(text="Select a Kai Rig", icon="ERROR")
+        if eye_state == "PARTIAL":
+            warning = eye.row()
+            warning.alert = True
+            warning.label(text="Partial Eye Module; regenerate to repair", icon="ERROR")
+        eye.operator(
+            KAI_OT_generate_eye_module.bl_idname,
+            text="Generate Eye Module" if eye_state == "NOT_GENERATED" else "Regenerate Eye Module",
+        )
+        eye.operator(KAI_OT_remove_eye_module.bl_idname)
+
         face = layout.box()
         face.label(text="Face Module")
+        face_state = face_module_state(rig) if rig is not None else "NOT_GENERATED"
         face.prop(context.scene, "kai_face_mesh_candidate", text="Mesh")
         row = face.row()
         row.template_list(
@@ -991,18 +1418,67 @@ class KAI_PT_facial(Panel):
         buttons = row.column(align=True)
         buttons.operator(KAI_OT_add_face_mesh.bl_idname, text="", icon="ADD")
         buttons.operator(KAI_OT_remove_face_mesh.bl_idname, text="", icon="REMOVE")
-        face.operator(KAI_OT_generate_face_module.bl_idname)
-        if rig is not None and FACE_FOLLOW_PROPERTY in rig:
-            face.prop(rig, f'["{FACE_FOLLOW_PROPERTY}"]', text="Head Follow", slider=True)
-
-        eye = layout.box()
-        eye.label(text="Eye Module")
-        if rig is not None:
-            eye.prop_search(rig.data, EYE_HEAD_PROPERTY, rig.data, "bones", text="Head Bone")
+        selected_mesh = _selected_face_mesh(context.scene)
+        mapping_box = face.box()
+        mapping_box.label(text="Facial Shape Key Mapping")
+        if rig is None:
+            mapping_box.label(text="Select a Kai Rig", icon="ERROR")
+        elif selected_mesh is None:
+            mapping_box.label(text="Select a Face Mesh", icon="INFO")
         else:
-            eye.label(text="Select a Kai Rig", icon="ERROR")
-        eye.operator(KAI_OT_generate_eye_module.bl_idname)
-        layout.operator(KAI_OT_remove_facial_modules.bl_idname)
+            mapping_box.label(text=f"Target: {selected_mesh.name}", icon="MESH_DATA")
+            if _shape_keys(selected_mesh) is None:
+                mapping_box.label(text="This Object has no Shape Keys", icon="ERROR")
+            mapping_box.operator(KAI_OT_auto_detect_face_mapping.bl_idname, icon="VIEWZOOM")
+            target_mapping = _mapping_for_mesh(rig, selected_mesh, get_face_mapping(rig))
+            for category, expand_property, channels in FACE_MAPPING_CATEGORIES:
+                expanded = getattr(context.scene, expand_property)
+                header = mapping_box.row()
+                header.prop(
+                    context.scene,
+                    expand_property,
+                    text=category,
+                    icon="TRIA_DOWN" if expanded else "TRIA_RIGHT",
+                    emboss=False,
+                )
+                if not expanded:
+                    continue
+                column = mapping_box.column(align=True)
+                for channel, label in channels:
+                    shape_name = target_mapping.get(channel, "")
+                    status = _face_mapping_status(rig, selected_mesh, shape_name)
+                    icon = {
+                        "NONE": "X",
+                        "INVALID": "QUESTION",
+                        "CONFLICT": "ERROR",
+                        "MAPPED": "CHECKMARK",
+                    }[status]
+                    display_name = shape_name or "None"
+                    if status == "INVALID":
+                        display_name += " (Missing)"
+                    elif status == "CONFLICT":
+                        display_name += " (Conflict)"
+                    row = column.row(align=True)
+                    row.alert = status in {"INVALID", "CONFLICT"}
+                    row.label(text=label)
+                    operator = row.operator(
+                        KAI_OT_set_face_mapping.bl_idname,
+                        text=display_name,
+                        icon=icon,
+                    )
+                    operator.object_name = selected_mesh.name
+                    operator.channel = channel
+        if face_state == "PARTIAL":
+            warning = face.row()
+            warning.alert = True
+            warning.label(text="Partial Face Module; regenerate to repair", icon="ERROR")
+        face.operator(
+            KAI_OT_generate_face_module.bl_idname,
+            text="Generate Face Module" if face_state == "NOT_GENERATED" else "Regenerate Face Module",
+        )
+        face.operator(KAI_OT_remove_face_module.bl_idname)
+        if rig is not None and face_state != "NOT_GENERATED" and FACE_FOLLOW_PROPERTY in rig:
+            face.prop(rig, f'["{FACE_FOLLOW_PROPERTY}"]', text="Head Follow", slider=True)
 
 
 CLASSES = (
@@ -1010,9 +1486,12 @@ CLASSES = (
     KAI_UL_face_meshes,
     KAI_OT_add_face_mesh,
     KAI_OT_remove_face_mesh,
+    KAI_OT_set_face_mapping,
+    KAI_OT_auto_detect_face_mapping,
     KAI_OT_generate_face_module,
     KAI_OT_generate_eye_module,
-    KAI_OT_remove_facial_modules,
+    KAI_OT_remove_eye_module,
+    KAI_OT_remove_face_module,
     KAI_PT_facial,
 )
 
@@ -1027,6 +1506,9 @@ def register():
     bpy.types.Scene.kai_face_mesh_candidate = bpy.props.PointerProperty(type=bpy.types.Object, poll=_mesh_poll)
     bpy.types.Scene.kai_face_meshes = bpy.props.CollectionProperty(type=KAI_PG_face_mesh_item)
     bpy.types.Scene.kai_face_mesh_index = bpy.props.IntProperty(default=0, min=0)
+    bpy.types.Scene.kai_face_mapping_expand_brow = bpy.props.BoolProperty(default=True)
+    bpy.types.Scene.kai_face_mapping_expand_eye = bpy.props.BoolProperty(default=False)
+    bpy.types.Scene.kai_face_mapping_expand_mouth = bpy.props.BoolProperty(default=False)
     bpy.types.Armature.kai_eye_head_bone = bpy.props.StringProperty(
         name="Head Bone",
         description="Head bone used to generate the Kai Eye Module",
@@ -1042,6 +1524,9 @@ def unregister():
         "kai_face_mesh_candidate",
         "kai_face_meshes",
         "kai_face_mesh_index",
+        "kai_face_mapping_expand_brow",
+        "kai_face_mapping_expand_eye",
+        "kai_face_mapping_expand_mouth",
     ):
         if hasattr(bpy.types.Scene, name):
             delattr(bpy.types.Scene, name)

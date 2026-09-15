@@ -17,7 +17,7 @@ This project is currently under active development. Kai focuses on flexible huma
 - Modular Face controllers with normalized Shape Key drivers
 - Improved support for production workflows where skeleton edits continue after rig generation
 
-## Eye / Face Modules (Facial v0.1 Phase 1.1)
+## Eye / Face Modules (Facial v0.1 Phase 1.2)
 
 Facial modules are generated from the `Eye / Face Modules` panel after the body control rig is ready.
 
@@ -25,6 +25,10 @@ Facial modules are generated from the `Eye / Face Modules` panel after the body 
 - **Face Module** creates a face-layout UI for left/right Brow, Eyelid, Eye Expression, Outer Corner/Squint, Mouth Position, and Mouth Corner controls. Brow controls use green horizontal forms, Eye/Eyelid controls use red circular regions, and Mouth controls use a blue horizontal oval. Root frames live in a separate `CTRL_Face_Root` bone collection and enclose each corresponding region. Add one or more objects to `Face Meshes`, then generate the module.
 - `FaceCtrlRigRoot` is the user-adjustable root for moving and scaling the entire Face UI to the character. Child controller drivers continue to read their own Local Space transforms.
 - A single Kai Facial Channel can drive matching Shape Keys on multiple registered meshes. Missing Shape Keys are skipped per object, while existing non-Kai drivers are reported as conflicts and preserved.
+- **Facial Shape Key Mapping** lets each registered Face Mesh map every built-in Kai Facial Channel to a chosen non-Basis Shape Key or to `None`. Auto Detect fills only empty mappings, while manual and invalid saved values remain visible for review.
+- `None` is a normal unassigned state. Missing warnings are reserved for saved Shape Key names that no longer exist, while non-Kai Driver conflicts stop generation without overwriting user data.
+- The Face UI is positioned and uniformly scaled from the mapped Head bone instead of Zhao-specific fixed coordinates. Regeneration preserves user-adjusted Root transforms and fitted controller positions.
+- Eye and Face modules expose state-aware Generate / Regenerate actions and separate Remove operations. Removing the Face module preserves its Mesh list and per-object Shape Key Mapping.
 - Face controller values are read in Local Space, explicitly clamped to `0..1`, and sent through a centralized Kai Facial Channel-to-Shape Key mapping.
 - `Head Follow` is an Armature Object custom property. It drives the Face root constraint without reading a descendant controller, avoiding the dependency cycle in the analyzed legacy rig.
 - Controllers and anchors are non-deforming. Unused Location channels, Rotation, and Scale are locked; normalized Location limits are also applied symmetrically.
@@ -114,18 +118,32 @@ Completed:
 - Reset Generated Rig
 - Rebuild Safety Validation
 - Eye / Face Modules (Facial v0.1 Phase 1)
+- Facial Shape Key Mapping (Facial v0.1 Phase 1.2)
 
 Planned:
 
 - Refresh Mapping from Skeleton with candidate confirmation UI
 - Quadruped Support
-- Character Shape Key Mapping UI
 - Custom Shape Key Controller Generator
 - Additional UI Improvements
 
 ## Changelog
 
-### 0.6.3 (Unreleased) — Facial v0.1 Phase 1.1
+### v0.6.4 Preview — Facial v0.1 Phase 1.2
+
+- Added per-Face-Mesh Shape Key Mapping UI for all 40 built-in Kai Facial Channels
+- Added searchable Shape Key selection with `None`, Missing, and non-Kai Driver Conflict states
+- Changed Auto Detect into a safe empty-field-only mapping initializer
+- Added schema 2 migration that preserves valid v0.6.3 connections and clears nonexistent legacy defaults
+- Added safe Driver cleanup when mappings are changed, invalidated, or set to `None`
+- Replaced Zhao-specific fixed Face UI sizing with a shared Head-based scale and initial placement
+- Added Generate / Regenerate labels based on complete, partial, or missing module state
+- Split Eye and Face removal into independent operations
+- Preserved Face Mesh and Shape Key Mapping settings when removing and recreating the Face module
+- Fixed the Shape Key search operator to return Blender's required modal result from `invoke()`
+- Kept the Phase 2 Custom Shape Key Controller Generator outside this release
+
+### v0.6.3 Preview — Facial v0.1 Phase 1.1
 
 - Added independent Eye and Face modules
 - Added combined and per-eye Aim targets with ReNim-readable `Eye_L/R` rotation outputs
