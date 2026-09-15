@@ -1,4 +1,4 @@
-"""Interactive Blender viewport capture for Kai Facial Phase 1.1 QA."""
+"""Interactive Blender viewport capture for Kai Facial Phase 2 QA."""
 
 import importlib.util
 import sys
@@ -51,6 +51,11 @@ mesh.hide_viewport = True
 mesh.shape_key_add(name="Basis")
 for shape_name in kai_facial.DEFAULT_FACE_SHAPE_KEY_MAPPING.values():
     mesh.shape_key_add(name=shape_name)
+for shape_name in ("Cheek_Puff", "Tongue_Out", "Tears", "Eye_Highlight", "Happy_Face"):
+    mesh.shape_key_add(name=shape_name)
+    channel = kai_facial.add_custom_face_channel(rig, shape_name)
+    kai_facial.ensure_face_mesh_mapping(rig, mesh)
+    kai_facial.set_face_channel_mapping(rig, mesh, channel["id"], shape_name)
 
 kai_facial.generate_face_module(rig, [mesh])
 kai_facial.generate_eye_module(rig, "Head")
@@ -69,6 +74,12 @@ def set_collection_visibility(controller_visible, root_visible):
     roots = armature.collections.get(kai_facial.FACE_ROOT_COLLECTION)
     if roots:
         roots.is_visible = root_visible
+    custom_controls = armature.collections.get(kai_facial.FACE_CUSTOM_COLLECTION)
+    if custom_controls:
+        custom_controls.is_visible = controller_visible
+    custom_ui = armature.collections.get(kai_facial.FACE_CUSTOM_UI_COLLECTION)
+    if custom_ui:
+        custom_ui.is_visible = root_visible
 
 
 def capture(names, view_location, view_distance, filepath, show_names=False):
@@ -91,8 +102,20 @@ def capture(names, view_location, view_distance, filepath, show_names=False):
     space.overlay.show_axis_z = False
     with bpy.context.temp_override(window=window, screen=screen, area=area, region=region):
         bpy.ops.view3d.view_axis(type="FRONT", align_active=False)
-        space.region_3d.view_location = view_location
-        space.region_3d.view_distance = view_distance
+        visible_points = [
+            rig.matrix_world @ point
+            for name in names
+            if name in rig.pose.bones
+            for point in (rig.pose.bones[name].head, rig.pose.bones[name].tail)
+        ]
+        if visible_points:
+            center = sum(visible_points, visible_points[0] * 0.0) / len(visible_points)
+            extent = max((point - center).length for point in visible_points)
+            space.region_3d.view_location = center
+            space.region_3d.view_distance = max(extent * 1.45, 0.2)
+        else:
+            space.region_3d.view_location = view_location
+            space.region_3d.view_distance = view_distance
         bpy.ops.wm.redraw_timer(type="DRAW_WIN_SWAP", iterations=2)
     with bpy.context.temp_override(window=window, screen=screen, area=area):
         result = bpy.ops.screen.screenshot_area(
@@ -103,7 +126,7 @@ def capture(names, view_location, view_distance, filepath, show_names=False):
         print("KAI_VIEWPORT_CAPTURE", filepath, result)
 
 
-state = {"step": 0}
+state = {"step": 0, "splash_attempts": 0}
 
 
 def close_splash():
@@ -115,8 +138,16 @@ def close_splash():
         owner = ctypes.c_ulong()
         user32.GetWindowThreadProcessId(window, ctypes.byref(owner))
         if owner.value == process_id:
+            rect = (ctypes.c_long * 4)()
+            user32.GetWindowRect(window, ctypes.byref(rect))
+            user32.SetForegroundWindow(window)
             user32.PostMessageW(window, 0x0100, 0x1B, 0)
             user32.PostMessageW(window, 0x0101, 0x1B, 0)
+            user32.PostMessageW(window, 0x0100, 0x0D, 0)
+            user32.PostMessageW(window, 0x0101, 0x0D, 0)
+            user32.SetCursorPos(rect[0] + 100, rect[1] + 100)
+            user32.mouse_event(0x0002, 0, 0, 0, 0)
+            user32.mouse_event(0x0004, 0, 0, 0, 0)
         return True
 
     user32.EnumWindows(send_escape, 0)
@@ -125,9 +156,56 @@ def close_splash():
 def run_capture():
     if state["step"] == 0:
         close_splash()
+        state["splash_attempts"] += 1
+        if state["splash_attempts"] < 3:
+            return 0.5
         state["step"] = 1
         return 0.5
     if state["step"] == 1:
+        set_collection_visibility(True, True)
+        custom_specs = kai_facial._custom_face_controller_specs(rig)
+        first = custom_specs[0]
+        capture(
+            [first["name"], first["track_name"], first["label_name"]],
+            (6.4, 0.0, 3.8),
+            1.2,
+            OUTPUT_DIR / "kai_phase2_cs_switch_single.png",
+        )
+        state["step"] = 2
+        return 0.5
+    if state["step"] == 2:
+        set_collection_visibility(True, True)
+        custom_specs = kai_facial._custom_face_controller_specs(rig)
+        capture(
+            [
+                name
+                for spec in custom_specs
+                for name in (spec["name"], spec["track_name"], spec["label_name"])
+            ],
+            (6.4, 0.0, 3.8),
+            4.5,
+            OUTPUT_DIR / "kai_phase2_custom_slider_labels.png",
+        )
+        state["step"] = 3
+        return 0.5
+    if state["step"] == 3:
+        set_collection_visibility(True, True)
+        custom_specs = kai_facial._custom_face_controller_specs(rig)
+        capture(
+            [spec["name"] for spec in kai_facial.FACE_CONTROLLERS]
+            + [name for name, _parent, _position in kai_facial.FACE_ANCHORS]
+            + [
+                name
+                for spec in custom_specs
+                for name in (spec["name"], spec["track_name"], spec["label_name"])
+            ],
+            (4.1, 0.0, 3.0),
+            7.2,
+            OUTPUT_DIR / "kai_phase2_face_and_custom_ui.png",
+        )
+        state["step"] = 4
+        return 0.5
+    if state["step"] == 4:
         set_collection_visibility(True, False)
         capture(
             [spec["name"] for spec in kai_facial.FACE_CONTROLLERS],
@@ -135,9 +213,9 @@ def run_capture():
             5.8,
             OUTPUT_DIR / "kai_face_controller_ui.png",
         )
-        state["step"] = 2
+        state["step"] = 5
         return 0.5
-    if state["step"] == 2:
+    if state["step"] == 5:
         set_collection_visibility(False, True)
         capture(
             [name for name, _parent, _position in kai_facial.FACE_ANCHORS],
@@ -145,7 +223,7 @@ def run_capture():
             7.0,
             OUTPUT_DIR / "kai_face_root_ui.png",
         )
-        state["step"] = 3
+        state["step"] = 6
         return 1.0
     bpy.ops.wm.quit_blender()
     return None

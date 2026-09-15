@@ -17,7 +17,7 @@ This project is currently under active development. Kai focuses on flexible huma
 - Modular Face controllers with normalized Shape Key drivers
 - Improved support for production workflows where skeleton edits continue after rig generation
 
-## Eye / Face Modules (Facial v0.1 Phase 1.2)
+## Eye / Face Modules (Facial v0.1 Phase 2)
 
 Facial modules are generated from the `Eye / Face Modules` panel after the body control rig is ready.
 
@@ -29,11 +29,15 @@ Facial modules are generated from the `Eye / Face Modules` panel after the body 
 - `None` is a normal unassigned state. Missing warnings are reserved for saved Shape Key names that no longer exist, while non-Kai Driver conflicts stop generation without overwriting user data.
 - The Face UI is positioned and uniformly scaled from the mapped Head bone instead of Zhao-specific fixed coordinates. Regeneration preserves user-adjusted Root transforms and fitted controller positions.
 - Eye and Face modules expose state-aware Generate / Regenerate actions and separate Remove operations. Removing the Face module preserves its Mesh list and per-object Shape Key Mapping.
+- **Custom Face Control** creates user-defined `0..1` Local X sliders by selecting a target Shape Key; Kai assigns a stable Internal ID automatically and initializes the editable Display Name from the Shape Key name. Custom channels appear in the existing per-mesh Mapping UI and share its `None`, Missing, Conflict, Multi Mesh, and Driver safety behavior.
+- Custom sliders use a fixed Bar, movable Knob, and fixed viewport Text label under `Face_CustomRoot` on the screen-right side of the Face UI. Their insertion order and fitted rest positions are stable across regeneration, while the Custom root retains independent Move and Scale adjustments.
+- Removing an individual Custom Controller removes only its bone, Mapping entries, and Kai-generated Drivers. Removing the whole Face Module preserves Custom definitions and Mapping so regeneration can restore them.
+- Viewport labels preserve Unicode Display Names, but glyph rendering quality depends on Blender's built-in font support; Kai does not add a runtime dependency on an external OS font or font file.
 - Face controller values are read in Local Space, explicitly clamped to `0..1`, and sent through a centralized Kai Facial Channel-to-Shape Key mapping.
 - `Head Follow` is an Armature Object custom property. It drives the Face root constraint without reading a descendant controller, avoiding the dependency cycle in the analyzed legacy rig.
 - Controllers and anchors are non-deforming. Unused Location channels, Rotation, and Scale are locked; normalized Location limits are also applied symmetrically.
 
-AIUEO is intentionally not owned by Facial v0.1. It remains available for a future shared PandaLip input contract. Eye Scale, Eye Highlight, Mouth Position Z Rotation, capture features, unused Shape Key auto-wiring, and the Phase 2 custom controller generator are also outside this phase.
+AIUEO is intentionally not owned by Facial v0.1. It remains available for a future shared PandaLip input contract. Eye Scale, Eye Highlight, Mouth Position Z Rotation, capture features, unused Shape Key auto-wiring, `-1..+1` sliders, 2D/4-direction Custom Controllers, and Custom Driver Expressions remain outside this phase.
 
 ## Reference Templates
 
@@ -119,15 +123,55 @@ Completed:
 - Rebuild Safety Validation
 - Eye / Face Modules (Facial v0.1 Phase 1)
 - Facial Shape Key Mapping (Facial v0.1 Phase 1.2)
+- Custom Shape Key Controller Generator (Facial v0.1 Phase 2)
 
 Planned:
 
 - Refresh Mapping from Skeleton with candidate confirmation UI
 - Quadruped Support
-- Custom Shape Key Controller Generator
 - Additional UI Improvements
 
 ## Changelog
+
+### v0.6.8 Preview — Facial v0.1 Phase 2
+
+- Added the Custom Shape Key Controller Generator MVP with a target Shape Key-based workflow, automatic Display Name initialization, and stable automatic Internal IDs
+- Added PandaLip-inspired Slider Bar, movable `cs_switch` Knob, fixed Viewport Label, and `Face_CustomRoot` group fitting
+- Integrated Custom channels with per-object Mapping, Multi Mesh, `None`, Missing, Conflict, individual removal, regeneration, and save/reopen persistence
+- Made Slider Bars and Labels display-only and non-selectable while keeping the Knob as the `0..1` animation control
+- Updated Custom Slider Knobs to the Zhao-reviewed `cs_switch` scale of `(1.0, 1.0, 0.25)`
+- Added the Zhao-reviewed yellow normal/selected and cyan active Bone Color scheme to Custom Slider Knobs
+- Matched the Zhao-reviewed Slider Bar scale `(0.45, 1.0, 0.01)` and cyan display color
+- Increased viewport Label scale to `(0.4, 0.4, 0.4)` and matched its cyan display color
+- Known limitation: Unicode Display Names are preserved, but viewport glyph quality depends on Blender's built-in font support
+- Not included: `-1..+1` sliders, 2D controllers, 4-direction controllers, and Custom Driver Expressions
+
+### 0.6.7 (Unreleased) — Custom Slider Selection Safety
+
+- Added the supplied `cs_switch` Mesh to the internal `lib/cs.blend` Custom Shape library
+- Changed Custom Slider Knobs from `cs_square` to the compact `cs_switch` shape
+- Separated selectable Knobs into `CTRL_Face_Custom` and display-only Bars/Labels into `MCH_Face_CustomUI`
+- Reinforced Bar and Label non-selection while keeping `Face_CustomRoot` selectable for group fitting
+
+### 0.6.6 (Unreleased) — Facial v0.1 Phase 2 UI Polish
+
+- Changed Custom Controller creation to start from a target Shape Key and auto-fill its Display Name
+- Replaced user-entered Property IDs with stable per-rig `custom_NNN` Internal IDs
+- Added PandaLip-inspired fixed Slider Bars, movable Knobs, and fixed viewport Text labels
+- Added Display Name editing without changing Internal IDs, Bone identity, or Mapping
+- Added safe label cleanup and restoration across individual removal, Face removal, regeneration, and save/reopen
+
+### 0.6.5 — Facial v0.1 Phase 2
+
+- Added user-defined Custom Facial Channels with separate Property IDs and Display Names
+- Added reusable `0..1` Local X slider generation under `Face_CustomRoot`
+- Added a persistent Custom Controller list with add, select, and individual remove operations
+- Integrated Custom channels into the existing per-object Shape Key Mapping UI
+- Reused Phase 1.2 `None`, Missing, Conflict, Multi Mesh, and explicit Driver clamp handling
+- Preserved Custom definitions and Mapping through Face Module removal and regeneration
+- Preserved `Face_CustomRoot` Move/Scale and existing Custom Controller rest positions during regeneration
+- Added schema 1 Custom definition storage without changing the existing Mapping schema 2 contract
+- Kept signed sliders, 2D controls, custom expressions, and viewport Text Objects outside the MVP
 
 ### v0.6.4 Preview — Facial v0.1 Phase 1.2
 

@@ -1,6 +1,7 @@
-"""Mixamo Rig Kai Eye / Face modules (Facial v0.1, Phase 1.2)."""
+"""Mixamo Rig Kai Eye / Face modules (Facial v0.1, Phase 2)."""
 
 import json
+import re
 from math import radians
 
 import bpy
@@ -19,6 +20,8 @@ LEGACY_FACE_ROOT = "Face_ControlRigRoot"
 FACE_COLLECTION = "CTRL_Face"
 FACE_ROOT_COLLECTION = "CTRL_Face_Root"
 FACE_ANCHOR_COLLECTION = "MCH_Face"
+FACE_CUSTOM_COLLECTION = "CTRL_Face_Custom"
+FACE_CUSTOM_UI_COLLECTION = "MCH_Face_CustomUI"
 EYE_TARGET_ROOT = "EyeTargetRoot"
 EYE_TARGETS = {"L": "EyeTarget_L", "R": "EyeTarget_R"}
 EYE_OUTPUTS = {"L": "Eye_L", "R": "Eye_R"}
@@ -33,6 +36,14 @@ FACE_TARGET_PROPERTY = "kai_face_target_object"  # Legacy Phase 1 single target.
 FACE_TARGETS_PROPERTY = "kai_face_mesh_mapping"
 FACE_MAPPING_SCHEMA_VERSION = 2
 FACE_MAPPING_NONE = "__KAI_NONE__"
+CUSTOM_FACE_CHANNELS_PROPERTY = "kai_custom_face_channels"
+CUSTOM_FACE_NEXT_ID_PROPERTY = "kai_custom_face_next_id"
+CUSTOM_FACE_SCHEMA_VERSION = 1
+FACE_CUSTOM_ROOT = "Face_CustomRoot"
+CUSTOM_FACE_BONE_PREFIX = "Face_Custom_"
+CUSTOM_FACE_TRACK_PREFIX = "MCH_Face_CustomTrack_"
+CUSTOM_FACE_LABEL_PREFIX = "MCH_Face_CustomLabel_"
+CUSTOM_FACE_LABEL_OBJECT_PREFIX = "KAI_FaceLabel_"
 
 DEFAULT_EYE_IK_LIMITS = {
     "x": (-radians(30.0), radians(30.0)),
@@ -188,6 +199,7 @@ FACE_ANCHORS = (
     ("Face_BrowRoot_L", FACE_ROOT, (4.1, 0.0, 5.5)),
     ("Face_BrowRoot_R", FACE_ROOT, (1.9, 0.0, 5.5)),
     ("Face_MouthRoot", FACE_ROOT, (3.0, 0.0, 0.4)),
+    (FACE_CUSTOM_ROOT, FACE_ROOT, (5.8, 0.0, 3.9)),
 )
 
 # The Phase 1.1 layout is authored in normalized controller units around this
@@ -196,6 +208,20 @@ FACE_ANCHORS = (
 FACE_LAYOUT_ORIGIN = Vector((3.0, 0.0, 3.0))
 FACE_LAYOUT_EYE_HALF_WIDTH = 1.1
 FACE_EYE_HALF_WIDTH_PER_HEAD = 0.18
+CUSTOM_FACE_START = Vector((5.8, 0.0, 5.4))
+CUSTOM_FACE_SPACING = 0.75
+CUSTOM_FACE_CONTROLLER_LENGTH = 0.35
+CUSTOM_FACE_CONTROLLER_SHAPE = "cs_switch"
+CUSTOM_FACE_CONTROLLER_DISPLAY_SCALE = (1.0, 1.0, 0.25)
+CUSTOM_FACE_CONTROLLER_COLOR = {
+    "normal": (1.0, 1.0, 0.0),
+    "select": (1.0, 1.0, 0.0),
+    "active": (0.0, 1.0, 1.0),
+}
+CUSTOM_FACE_UI_COLOR = (0.0, 1.0, 1.0)
+CUSTOM_FACE_TRACK_DISPLAY_SCALE = (0.45, 1.0, 0.01)
+CUSTOM_FACE_LABEL_OFFSET = Vector((1.35, 0.0, -0.02))
+CUSTOM_FACE_LABEL_DISPLAY_SCALE = (0.4, 0.4, 0.4)
 
 FACE_PART_ROOT_SHAPES = {
     "Face_BrowRoot_L": ("cs_square", (0.61, 1.0, 0.61)),
@@ -203,6 +229,7 @@ FACE_PART_ROOT_SHAPES = {
     "Face_EyeRoot_L": ("cs_square", (0.61, 1.0, 0.61)),
     "Face_EyeRoot_R": ("cs_square", (0.61, 1.0, 0.61)),
     "Face_MouthRoot": ("cs_square", (1.28, 1.0, 0.63)),
+    FACE_CUSTOM_ROOT: ("cs_square", (1.3, 1.0, 2.2)),
 }
 
 # Output declarations reference stable Mapping IDs, never concrete Shape Key names.
@@ -338,6 +365,20 @@ def _set_eye_ui_color(pbone):
     pbone.color.custom.active = EYE_UI_COLOR["active"]
 
 
+def _set_custom_face_controller_color(pbone):
+    pbone.color.palette = "CUSTOM"
+    pbone.color.custom.normal = CUSTOM_FACE_CONTROLLER_COLOR["normal"]
+    pbone.color.custom.select = CUSTOM_FACE_CONTROLLER_COLOR["select"]
+    pbone.color.custom.active = CUSTOM_FACE_CONTROLLER_COLOR["active"]
+
+
+def _set_custom_face_ui_color(pbone):
+    pbone.color.palette = "CUSTOM"
+    pbone.color.custom.normal = CUSTOM_FACE_UI_COLOR
+    pbone.color.custom.select = CUSTOM_FACE_UI_COLOR
+    pbone.color.custom.active = CUSTOM_FACE_UI_COLOR
+
+
 def _snapshot_pose_transform(pbone):
     if pbone is None:
         return None
@@ -405,6 +446,9 @@ def _snapshot_face_rebuild_bones(rig):
     snapshots = {}
     names = [name for name, _parent, _position in FACE_ANCHORS]
     names.extend(spec["name"] for spec in FACE_CONTROLLERS)
+    names.extend(spec["name"] for spec in _custom_face_controller_specs(rig))
+    names.extend(spec["track_name"] for spec in _custom_face_controller_specs(rig))
+    names.extend(spec["label_name"] for spec in _custom_face_controller_specs(rig))
     for name in names:
         bone = (
             rig.data.edit_bones.get(name)
@@ -473,6 +517,215 @@ def _shape_key_names(mesh):
     }
 
 
+CUSTOM_FACE_ID_PATTERN = re.compile(r"^[a-z_][a-z0-9_]*$")
+
+
+def custom_face_bone_name(channel_id):
+    return f"{CUSTOM_FACE_BONE_PREFIX}{channel_id}"
+
+
+def _custom_face_track_name(channel_id):
+    return f"{CUSTOM_FACE_TRACK_PREFIX}{channel_id}"
+
+
+def _custom_face_label_name(channel_id):
+    return f"{CUSTOM_FACE_LABEL_PREFIX}{channel_id}"
+
+
+def get_custom_face_channels(rig):
+    """Return validated, stable custom-channel definitions for this rig."""
+    raw = rig.data.get(CUSTOM_FACE_CHANNELS_PROPERTY, "")
+    if not raw:
+        return []
+    try:
+        payload = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(payload, dict) or not isinstance(payload.get("channels"), list):
+        return []
+
+    channels = []
+    seen = set()
+    for source_index, source in enumerate(payload["channels"]):
+        if not isinstance(source, dict):
+            continue
+        channel_id = str(source.get("id", "")).strip()
+        if (
+            not CUSTOM_FACE_ID_PATTERN.fullmatch(channel_id)
+            or channel_id in DEFAULT_FACE_SHAPE_KEY_MAPPING
+            or channel_id in seen
+        ):
+            continue
+        display_name = str(source.get("display_name", "")).strip() or channel_id
+        try:
+            order = max(0, int(source.get("order", source_index)))
+        except (TypeError, ValueError):
+            order = source_index
+        seen.add(channel_id)
+        channels.append({"id": channel_id, "display_name": display_name, "order": order})
+    return sorted(channels, key=lambda item: item["order"])
+
+
+def _write_custom_face_channels(rig, channels):
+    payload = {
+        "schema_version": CUSTOM_FACE_SCHEMA_VERSION,
+        "channels": [
+            {
+                "id": str(item["id"]),
+                "display_name": str(item["display_name"]),
+                "order": int(item["order"]),
+            }
+            for item in channels
+        ],
+    }
+    rig.data[CUSTOM_FACE_CHANNELS_PROPERTY] = json.dumps(payload, sort_keys=True)
+    return payload
+
+
+def _next_custom_face_channel_id(rig):
+    used = set(_all_face_channel_ids(rig))
+    highest_existing = max(
+        (
+            int(match.group(1))
+            for channel_id in used
+            for match in (re.fullmatch(r"custom_(\d+)", channel_id),)
+            if match is not None
+        ),
+        default=0,
+    )
+    try:
+        number = max(
+            1,
+            highest_existing + 1,
+            int(rig.data.get(CUSTOM_FACE_NEXT_ID_PROPERTY, 1)),
+        )
+    except (TypeError, ValueError):
+        number = 1
+    while True:
+        channel_id = f"custom_{number:03d}"
+        number += 1
+        if channel_id not in used:
+            rig.data[CUSTOM_FACE_NEXT_ID_PROPERTY] = number
+            return channel_id
+
+
+def add_custom_face_channel(rig, display_name):
+    display_name = str(display_name or "").strip()
+    if not display_name:
+        raise ValueError("Display Name is required")
+    channel_id = _next_custom_face_channel_id(rig)
+    channels = get_custom_face_channels(rig)
+    bone = rig.data.bones.get(custom_face_bone_name(channel_id))
+    if bone is not None and bone.get("kai_module") != FACE_MODULE_ID:
+        raise ValueError(f"Controller Bone name is already in use: {bone.name}")
+    next_order = max((item["order"] for item in channels), default=-1) + 1
+    channel = {"id": channel_id, "display_name": display_name, "order": next_order}
+    channels.append(channel)
+    _write_custom_face_channels(rig, channels)
+    return channel
+
+
+def rename_custom_face_channel(rig, channel_id, display_name):
+    display_name = str(display_name or "").strip()
+    if not display_name:
+        raise ValueError("Display Name is required")
+    channels = get_custom_face_channels(rig)
+    channel = next((item for item in channels if item["id"] == channel_id), None)
+    if channel is None:
+        raise ValueError(f"Custom Facial Channel not found: {channel_id}")
+    channel["display_name"] = display_name
+    _write_custom_face_channels(rig, channels)
+    return channel
+
+
+def _all_face_channel_ids(rig):
+    return tuple(DEFAULT_FACE_SHAPE_KEY_MAPPING) + tuple(
+        item["id"] for item in get_custom_face_channels(rig)
+    )
+
+
+def _custom_face_controller_specs(rig):
+    specs = []
+    for channel in get_custom_face_channels(rig):
+        position = CUSTOM_FACE_START + Vector((0.0, 0.0, -channel["order"] * CUSTOM_FACE_SPACING))
+        specs.append({
+            "name": custom_face_bone_name(channel["id"]),
+            "track_name": _custom_face_track_name(channel["id"]),
+            "label_name": _custom_face_label_name(channel["id"]),
+            "parent": FACE_CUSTOM_ROOT,
+            "pos": tuple(position),
+            "track_pos": tuple(position + Vector((0.5, 0.0, 0.0))),
+            "label_pos": tuple(position + CUSTOM_FACE_LABEL_OFFSET),
+            "length": CUSTOM_FACE_CONTROLLER_LENGTH,
+            "axes": {0: (0.0, 1.0)},
+            "shape": CUSTOM_FACE_CONTROLLER_SHAPE,
+            "display_scale": CUSTOM_FACE_CONTROLLER_DISPLAY_SCALE,
+            "shape_rotation": (0.0, 0.0, 0.0),
+            "channel_id": channel["id"],
+            "display_name": channel["display_name"],
+        })
+    return specs
+
+
+def _remove_custom_face_label_objects(rig, channel_id=None):
+    """Remove generated Text custom-shape sources owned by this rig."""
+    objects = set()
+    for pbone in rig.pose.bones:
+        bone_channel = pbone.bone.get("kai_custom_face_channel")
+        if not bone_channel or (channel_id is not None and bone_channel != channel_id):
+            continue
+        custom_shape = pbone.custom_shape
+        if custom_shape is not None and custom_shape.get("kai_face_label"):
+            objects.add(custom_shape)
+    for obj in bpy.data.objects:
+        if not obj.get("kai_face_label"):
+            continue
+        if obj.get("kai_face_label_armature") != rig.data.name:
+            continue
+        if channel_id is not None and obj.get("kai_custom_face_channel") != channel_id:
+            continue
+        objects.add(obj)
+    for obj in objects:
+        data = obj.data
+        bpy.data.objects.remove(obj, do_unlink=True)
+        if data is not None and data.users == 0 and data.bl_rna.identifier == "Curve":
+            bpy.data.curves.remove(data)
+    return len(objects)
+
+
+def _create_custom_face_label_object(rig, spec):
+    curve = bpy.data.curves.new(
+        f"{CUSTOM_FACE_LABEL_OBJECT_PREFIX}{spec['channel_id']}",
+        "FONT",
+    )
+    curve.body = spec["display_name"]
+    curve.align_x = "LEFT"
+    curve.align_y = "CENTER"
+    curve.size = 1.0
+    curve.extrude = 0.0
+    obj = bpy.data.objects.new(
+        f"{CUSTOM_FACE_LABEL_OBJECT_PREFIX}{rig.data.name}_{spec['channel_id']}",
+        curve,
+    )
+    bpy.context.scene.collection.objects.link(obj)
+    obj["kai_face_label"] = True
+    obj["kai_face_label_armature"] = rig.data.name
+    obj["kai_custom_face_channel"] = spec["channel_id"]
+    obj.hide_render = True
+    obj.hide_select = True
+    obj.hide_viewport = True
+    obj.hide_set(True)
+    return obj
+
+
+def _face_output_specs(rig):
+    custom = [
+        (item["channel_id"], item["name"], "LOC_X", "v")
+        for item in _custom_face_controller_specs(rig)
+    ]
+    return tuple(FACE_OUTPUTS) + tuple(custom)
+
+
 def get_face_mapping(rig):
     mapping = dict(DEFAULT_FACE_SHAPE_KEY_MAPPING)
     raw = rig.data.get(FACE_MAPPING_PROPERTY, "")
@@ -516,6 +769,7 @@ def _normalize_face_mesh_mapping(rig, payload):
     except (TypeError, ValueError):
         source_version = 1
     fallback = get_face_mapping(rig)
+    channel_ids = _all_face_channel_ids(rig)
     targets = []
     seen = set()
     for source in payload.get("targets", []):
@@ -534,10 +788,11 @@ def _normalize_face_mesh_mapping(rig, payload):
             for channel, default_name in DEFAULT_FACE_SHAPE_KEY_MAPPING.items():
                 value = str(stored.get(channel, fallback.get(channel, default_name)) or "")
                 channels[channel] = value if value != "Basis" and value in available else ""
+            channels.update({channel: "" for channel in channel_ids if channel not in channels})
         else:
             channels = {
                 channel: str(stored.get(channel, "") or "")
-                for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING
+                for channel in channel_ids
             }
         targets.append({"object": object_name, "channels": channels})
     return {"schema_version": FACE_MAPPING_SCHEMA_VERSION, "targets": targets}
@@ -560,9 +815,11 @@ def ensure_face_mesh_mapping(rig, mesh):
     payload = get_face_mesh_mapping(rig)
     target = _find_face_mapping_target(payload, mesh.name)
     if target is None:
+        channels = _detected_face_mapping(mesh, get_face_mapping(rig))
+        channels.update({channel: "" for channel in _all_face_channel_ids(rig) if channel not in channels})
         target = {
             "object": mesh.name,
-            "channels": _detected_face_mapping(mesh, get_face_mapping(rig)),
+            "channels": channels,
         }
         payload["targets"].append(target)
     payload = _write_face_mesh_mapping(rig, payload)
@@ -570,7 +827,7 @@ def ensure_face_mesh_mapping(rig, mesh):
 
 
 def set_face_channel_mapping(rig, mesh, channel, shape_name):
-    if channel not in DEFAULT_FACE_SHAPE_KEY_MAPPING:
+    if channel not in _all_face_channel_ids(rig):
         raise ValueError(f"Unknown Kai Facial Channel: {channel}")
     shape_name = str(shape_name or "")
     if shape_name == "Basis":
@@ -602,7 +859,9 @@ def _mapping_for_mesh(rig, mesh, fallback):
     target = _find_face_mapping_target(payload, mesh.name)
     if target is not None:
         return dict(target["channels"])
-    return _detected_face_mapping(mesh, fallback)
+    mapping = _detected_face_mapping(mesh, fallback)
+    mapping.update({channel: "" for channel in _all_face_channel_ids(rig) if channel not in mapping})
+    return mapping
 
 
 def _store_face_mesh_mapping(rig, mesh_mappings):
@@ -614,7 +873,7 @@ def _store_face_mesh_mapping(rig, mesh_mappings):
             payload["targets"].append(target)
         target["channels"] = {
             channel: str(mapping.get(channel, "") or "")
-            for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING
+            for channel in _all_face_channel_ids(rig)
         }
     _write_face_mesh_mapping(rig, payload)
 
@@ -705,6 +964,72 @@ def _remove_face_drivers(rig, meshes=None):
     return removed
 
 
+def _driver_uses_bone(fcurve, rig, bone_name):
+    return any(
+        target.id == rig and target.bone_target == bone_name
+        for variable in fcurve.driver.variables
+        if variable.type == "TRANSFORMS"
+        for target in variable.targets
+    )
+
+
+def remove_custom_face_channel(rig, channel_id):
+    """Remove one custom definition, its bone, Kai Drivers, and Mapping entries."""
+    channels = get_custom_face_channels(rig)
+    if not any(item["id"] == channel_id for item in channels):
+        raise ValueError(f"Custom Facial Channel not found: {channel_id}")
+
+    payload = get_face_mesh_mapping(rig)
+    bone_name = custom_face_bone_name(channel_id)
+    bone_names = (
+        bone_name,
+        _custom_face_track_name(channel_id),
+        _custom_face_label_name(channel_id),
+    )
+    removed_drivers = 0
+    for target in payload["targets"]:
+        shape_name = str(target.get("channels", {}).get(channel_id, "") or "")
+        mesh = bpy.data.objects.get(target.get("object", ""))
+        keys = _shape_keys(mesh) if mesh is not None else None
+        if not shape_name or keys is None:
+            continue
+        fcurve = _find_driver(keys, _driver_path(shape_name))
+        if (
+            fcurve is not None
+            and _is_kai_face_driver(fcurve, rig)
+            and _driver_uses_bone(fcurve, rig, bone_name)
+        ):
+            keys.driver_remove(fcurve.data_path, fcurve.array_index)
+            removed_drivers += 1
+
+    removable = [
+        name
+        for name in bone_names
+        if rig.data.bones.get(name) is not None
+        and rig.data.bones[name].get("kai_module") == FACE_MODULE_ID
+    ]
+    removed_bones = 0
+    if removable:
+        _set_active_object(rig)
+        bpy.ops.object.mode_set(mode="EDIT")
+        for name in removable:
+            edit_bone = rig.data.edit_bones.get(name)
+            if edit_bone is not None:
+                rig.data.edit_bones.remove(edit_bone)
+                removed_bones += 1
+        bpy.ops.object.mode_set(mode="OBJECT")
+
+    _remove_custom_face_label_objects(rig, channel_id)
+    _write_custom_face_channels(
+        rig,
+        [item for item in channels if item["id"] != channel_id],
+    )
+    for target in payload["targets"]:
+        target.get("channels", {}).pop(channel_id, None)
+    _write_face_mesh_mapping(rig, payload)
+    return removed_bones, removed_drivers
+
+
 def _remove_face_follow_driver(rig):
     if rig.animation_data is None:
         return 0
@@ -743,10 +1068,13 @@ def _remove_empty_collection(rig, name):
 def remove_face_module(rig, meshes=None):
     drivers = _remove_face_drivers(rig, meshes)
     drivers += _remove_face_follow_driver(rig)
+    _remove_custom_face_label_objects(rig)
     bones = _remove_module_bones(rig, FACE_MODULE_ID)
     _remove_empty_collection(rig, FACE_COLLECTION)
     _remove_empty_collection(rig, FACE_ROOT_COLLECTION)
     _remove_empty_collection(rig, FACE_ANCHOR_COLLECTION)
+    _remove_empty_collection(rig, FACE_CUSTOM_COLLECTION)
+    _remove_empty_collection(rig, FACE_CUSTOM_UI_COLLECTION)
     for name in (FACE_TARGET_PROPERTY,):
         if name in rig.data:
             del rig.data[name]
@@ -796,6 +1124,9 @@ def _module_state(rig, module_id, bone_names):
 def face_module_state(rig):
     names = [name for name, _parent, _position in FACE_ANCHORS]
     names.extend(spec["name"] for spec in FACE_CONTROLLERS)
+    names.extend(spec["name"] for spec in _custom_face_controller_specs(rig))
+    names.extend(spec["track_name"] for spec in _custom_face_controller_specs(rig))
+    names.extend(spec["label_name"] for spec in _custom_face_controller_specs(rig))
     return _module_state(rig, FACE_MODULE_ID, names)
 
 
@@ -813,7 +1144,7 @@ def _face_mapping_counts(rig, meshes):
             continue
         mapping = _mapping_for_mesh(rig, mesh, fallback)
         names = _shape_key_names(mesh)
-        for channel in DEFAULT_FACE_SHAPE_KEY_MAPPING:
+        for channel in _all_face_channel_ids(rig):
             shape_name = mapping.get(channel, "")
             if not shape_name:
                 unassigned += 1
@@ -839,7 +1170,7 @@ def _validate_face_targets(rig, meshes, fallback_mapping):
         keys = _shape_keys(mesh)
         if keys is None:
             continue
-        for spec in FACE_OUTPUTS:
+        for spec in _face_output_specs(rig):
             shape_name = mapping.get(spec[0], "")
             if not shape_name or keys.key_blocks.get(shape_name) is None:
                 continue
@@ -870,6 +1201,8 @@ def _validate_module_bone_names(rig, module_id, names):
 
 def generate_face_module(rig, meshes):
     mapping = get_face_mapping(rig)
+    custom_specs = _custom_face_controller_specs(rig)
+    output_specs = _face_output_specs(rig)
     previous_bones = _snapshot_face_rebuild_bones(rig)
     face_center, base_scale = _face_layout_basis(rig)
     root_transforms = {
@@ -885,12 +1218,17 @@ def generate_face_module(rig, meshes):
         rig,
         FACE_MODULE_ID,
         [name for name, _parent, _position in FACE_ANCHORS]
-        + [spec["name"] for spec in FACE_CONTROLLERS],
+        + [spec["name"] for spec in FACE_CONTROLLERS]
+        + [spec["name"] for spec in custom_specs]
+        + [spec["track_name"] for spec in custom_specs]
+        + [spec["label_name"] for spec in custom_specs],
     )
     remove_face_module(rig, valid_meshes)
     _set_active_object(rig)
     _ensure_collection(rig, FACE_COLLECTION)
     _ensure_collection(rig, FACE_ROOT_COLLECTION)
+    _ensure_collection(rig, FACE_CUSTOM_COLLECTION)
+    _ensure_collection(rig, FACE_CUSTOM_UI_COLLECTION)
 
     bpy.ops.object.mode_set(mode="EDIT")
     for name, parent, position in FACE_ANCHORS:
@@ -911,11 +1249,55 @@ def generate_face_module(rig, meshes):
             spec["parent"],
             FACE_COLLECTION,
         )
+    for spec in custom_specs:
+        _create_edit_bone(
+            rig,
+            spec["track_name"],
+            _face_layout_position(spec["track_pos"], face_center),
+            0.1,
+            spec["parent"],
+            FACE_CUSTOM_UI_COLLECTION,
+        )
+        _create_edit_bone(
+            rig,
+            spec["name"],
+            _face_layout_position(spec["pos"], face_center),
+            spec["length"],
+            spec["parent"],
+            FACE_CUSTOM_COLLECTION,
+        )
+        _create_edit_bone(
+            rig,
+            spec["label_name"],
+            _face_layout_position(spec["label_pos"], face_center),
+            0.1,
+            spec["parent"],
+            FACE_CUSTOM_UI_COLLECTION,
+        )
     for name, snapshot in previous_bones.items():
         bone = rig.data.edit_bones.get(name)
         if bone is not None:
             bone.head = snapshot["head"]
             bone.tail = snapshot["tail"]
+    # New Phase 2 controls are placed from the actual Face root rest position.
+    # This keeps them beside user-fitted v0.6.4 layouts instead of falling back
+    # to the character Head-derived initial center.
+    layout_root = rig.data.edit_bones[FACE_ROOT]
+    custom_root = rig.data.edit_bones[FACE_CUSTOM_ROOT]
+    if FACE_CUSTOM_ROOT not in previous_bones:
+        custom_root.head = layout_root.head + Vector((5.8, 0.0, 3.9)) - FACE_LAYOUT_ORIGIN
+        custom_root.tail = custom_root.head + Vector((0.0, 0.0, 0.1))
+    for spec in custom_specs:
+        for name, position, length in (
+            (spec["track_name"], spec["track_pos"], 0.1),
+            (spec["name"], spec["pos"], spec["length"]),
+            (spec["label_name"], spec["label_pos"], 0.1),
+        ):
+            if name in previous_bones:
+                continue
+            bone = rig.data.edit_bones[name]
+            bone.head = layout_root.head + Vector(position) - FACE_LAYOUT_ORIGIN
+            bone.tail = bone.head + Vector((0.0, 0.0, length))
     bpy.ops.object.mode_set(mode="POSE")
 
     for name, _parent, _position in FACE_ANCHORS:
@@ -937,6 +1319,7 @@ def generate_face_module(rig, meshes):
     for spec in FACE_CONTROLLERS:
         pbone = rig.pose.bones[spec["name"]]
         pbone.bone["mixamo_ctrl"] = 1
+        pbone.bone.hide_select = False
         pbone.bone["kai_facial_channel"] = spec["name"]
         _lock_pose_bone(pbone, tuple(spec["axes"].keys()))
         _add_local_limits(pbone, spec["axes"])
@@ -947,6 +1330,41 @@ def generate_face_module(rig, meshes):
             spec.get("shape_rotation", (90.0, 0.0, 0.0)),
         )
         _set_face_ui_color(pbone)
+    for spec in custom_specs:
+        track = rig.pose.bones[spec["track_name"]]
+        _lock_pose_bone(track)
+        track.bone.hide_select = True
+        _set_front_facing_custom_shape(
+            track,
+            "cs_square",
+            CUSTOM_FACE_TRACK_DISPLAY_SCALE,
+        )
+        _set_custom_face_ui_color(track)
+        label = rig.pose.bones[spec["label_name"]]
+        _lock_pose_bone(label)
+        label.bone.hide_select = True
+        label.bone["kai_custom_face_channel"] = spec["channel_id"]
+        label.bone["kai_custom_face_display_name"] = spec["display_name"]
+        label.custom_shape = _create_custom_face_label_object(rig, spec)
+        label.use_custom_shape_bone_size = False
+        label.custom_shape_rotation_euler = (0.0, 0.0, 0.0)
+        label.custom_shape_scale_xyz = CUSTOM_FACE_LABEL_DISPLAY_SCALE
+        _set_custom_face_ui_color(label)
+        pbone = rig.pose.bones[spec["name"]]
+        pbone.bone["mixamo_ctrl"] = 1
+        pbone.bone.hide_select = False
+        pbone.bone["kai_facial_channel"] = spec["channel_id"]
+        pbone.bone["kai_custom_face_channel"] = spec["channel_id"]
+        pbone.bone["kai_custom_face_display_name"] = spec["display_name"]
+        _lock_pose_bone(pbone, (0,))
+        _add_local_limits(pbone, spec["axes"])
+        _set_front_facing_custom_shape(
+            pbone,
+            spec["shape"],
+            spec["display_scale"],
+            spec.get("shape_rotation", (90.0, 0.0, 0.0)),
+        )
+        _set_custom_face_controller_color(pbone)
     _finish_custom_shape_setup(rig)
 
     if FACE_FOLLOW_PROPERTY not in rig:
@@ -975,7 +1393,7 @@ def generate_face_module(rig, meshes):
     missing = 0
     for mesh, target_mapping in mesh_mappings:
         keys = _shape_keys(mesh)
-        for spec in FACE_OUTPUTS:
+        for spec in output_specs:
             shape_name = target_mapping.get(spec[0], "")
             if not shape_name:
                 continue
@@ -989,7 +1407,7 @@ def generate_face_module(rig, meshes):
     _store_face_mesh_mapping(rig, mesh_mappings)
     rig.data["kai_face_module"] = FACE_MODULE_ID
     bpy.ops.object.mode_set(mode="OBJECT")
-    return len(FACE_CONTROLLERS), len(connected), missing
+    return len(FACE_CONTROLLERS) + len(custom_specs), len(connected), missing
 
 
 def _get_eye_head_bone(armature):
@@ -1165,6 +1583,17 @@ def _face_shape_key_enum_items(operator, _context):
     return items
 
 
+def _custom_target_shape_key_enum_items(operator, _context):
+    mesh = bpy.data.objects.get(operator.object_name)
+    names = sorted(_shape_key_names(mesh)) if mesh is not None else []
+    items = [
+        (name, name, f"Create a Custom Controller for {mesh.name}.{name}", "SHAPEKEY_DATA", index)
+        for index, name in enumerate(names)
+    ]
+    _SHAPE_KEY_ENUM_CACHE[f"custom:{operator.object_name}"] = items
+    return items
+
+
 class KAI_PG_face_mesh_item(bpy.types.PropertyGroup):
     object: bpy.props.PointerProperty(type=bpy.types.Object)
 
@@ -1285,10 +1714,183 @@ class KAI_OT_auto_detect_face_mapping(bpy.types.Operator):
         return {"FINISHED"}
 
 
+class KAI_OT_select_custom_target_shape(bpy.types.Operator):
+    bl_idname = "kai.select_custom_target_shape"
+    bl_label = "Target Shape Key"
+    bl_description = "Select the Shape Key used by the new Custom Controller"
+    bl_options = {"INTERNAL"}
+    bl_property = "shape_key"
+
+    object_name: bpy.props.StringProperty(options={"HIDDEN"})
+    shape_key: bpy.props.EnumProperty(
+        items=_custom_target_shape_key_enum_items,
+        options={"SKIP_SAVE"},
+    )
+
+    def invoke(self, context, _event):
+        mesh = bpy.data.objects.get(self.object_name)
+        if mesh is None or not _shape_key_names(mesh):
+            self.report({"ERROR"}, "The selected Face Mesh has no target Shape Keys")
+            return {"CANCELLED"}
+        context.window_manager.invoke_search_popup(self)
+        return {"RUNNING_MODAL"}
+
+    def execute(self, context):
+        mesh = bpy.data.objects.get(self.object_name)
+        if mesh is None or self.shape_key not in _shape_key_names(mesh):
+            self.report({"ERROR"}, "Select a valid non-Basis Shape Key")
+            return {"CANCELLED"}
+        context.scene.kai_custom_face_target_shape_key = self.shape_key
+        context.scene.kai_custom_face_display_name = self.shape_key
+        return {"FINISHED"}
+
+
+class KAI_OT_add_custom_face_controller(bpy.types.Operator):
+    bl_idname = "kai.add_custom_face_controller"
+    bl_label = "Add Custom Controller"
+    bl_description = "Add a persistent 0 to 1 Custom Facial Channel and generate its slider when possible"
+    bl_options = {"REGISTER", "UNDO"}
+
+    @classmethod
+    def poll(cls, context):
+        return _active_armature(context) is not None
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        scene = context.scene
+        mesh = _selected_face_mesh(scene)
+        shape_name = scene.kai_custom_face_target_shape_key
+        if mesh is None:
+            self.report({"ERROR"}, "Select a Face Mesh first")
+            return {"CANCELLED"}
+        if shape_name not in _shape_key_names(mesh):
+            self.report({"ERROR"}, "Select a valid Target Shape Key")
+            return {"CANCELLED"}
+        if _face_mapping_status(rig, mesh, shape_name) == "CONFLICT":
+            self.report({"ERROR"}, f"Existing non-Kai driver: {mesh.name}.{shape_name}")
+            return {"CANCELLED"}
+        try:
+            channel = add_custom_face_channel(rig, scene.kai_custom_face_display_name)
+        except ValueError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+
+        meshes = _registered_face_meshes(scene)
+        for mesh in meshes:
+            ensure_face_mesh_mapping(rig, mesh)
+        set_face_channel_mapping(rig, _selected_face_mesh(scene), channel["id"], shape_name)
+        scene.kai_custom_face_selected_id = channel["id"]
+        scene.kai_custom_face_target_shape_key = ""
+        scene.kai_custom_face_display_name = ""
+
+        if face_module_state(rig) != "NOT_GENERATED" and meshes:
+            try:
+                generate_face_module(rig, meshes)
+            except RuntimeError as exc:
+                self.report({"WARNING"}, f"Custom definition saved; regenerate failed: {exc}")
+                return {"FINISHED"}
+            self.report({"INFO"}, f"Custom Controller added: {channel['display_name']}")
+        else:
+            self.report({"INFO"}, f"Custom definition saved; Generate Face Module to create {channel['display_name']}")
+        return {"FINISHED"}
+
+
+class KAI_OT_rename_custom_face_controller(bpy.types.Operator):
+    bl_idname = "kai.rename_custom_face_controller"
+    bl_label = "Rename Custom Controller"
+    bl_description = "Change the Display Name without changing Internal ID or Mapping"
+    bl_options = {"REGISTER", "UNDO"}
+
+    channel_id: bpy.props.StringProperty(options={"HIDDEN"})
+    display_name: bpy.props.StringProperty(name="Display Name")
+
+    def invoke(self, context, _event):
+        rig = _active_armature(context)
+        channel = next(
+            (item for item in get_custom_face_channels(rig) if item["id"] == self.channel_id),
+            None,
+        ) if rig is not None else None
+        if channel is None:
+            self.report({"ERROR"}, "Custom Facial Channel not found")
+            return {"CANCELLED"}
+        self.display_name = channel["display_name"]
+        return context.window_manager.invoke_props_dialog(self)
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        if rig is None:
+            return {"CANCELLED"}
+        try:
+            channel = rename_custom_face_channel(rig, self.channel_id, self.display_name)
+            meshes = _registered_face_meshes(context.scene)
+            if face_module_state(rig) != "NOT_GENERATED" and meshes:
+                generate_face_module(rig, meshes)
+        except (ValueError, RuntimeError) as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        self.report({"INFO"}, f"Display Name updated: {channel['display_name']}")
+        return {"FINISHED"}
+
+
+class KAI_OT_select_custom_face_controller(bpy.types.Operator):
+    bl_idname = "kai.select_custom_face_controller"
+    bl_label = "Select Custom Controller"
+    bl_description = "Select this Custom Facial Channel and its generated controller bone"
+    bl_options = {"INTERNAL"}
+
+    channel_id: bpy.props.StringProperty(options={"HIDDEN"})
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        context.scene.kai_custom_face_selected_id = self.channel_id
+        if rig is not None:
+            bone = rig.data.bones.get(custom_face_bone_name(self.channel_id))
+            if bone is not None:
+                for item in rig.data.bones:
+                    item.select = False
+                bone.select = True
+                rig.data.bones.active = bone
+        return {"FINISHED"}
+
+
+class KAI_OT_remove_custom_face_controller(bpy.types.Operator):
+    bl_idname = "kai.remove_custom_face_controller"
+    bl_label = "Remove Custom Controller"
+    bl_description = "Remove this Custom Channel, its controller, Kai Driver, and per-mesh Mapping"
+    bl_options = {"REGISTER", "UNDO"}
+
+    channel_id: bpy.props.StringProperty(options={"HIDDEN"})
+
+    @classmethod
+    def poll(cls, context):
+        return _active_armature(context) is not None
+
+    def execute(self, context):
+        rig = _active_armature(context)
+        meshes = _registered_face_meshes(context.scene)
+        rebuild = face_module_state(rig) != "NOT_GENERATED" and bool(meshes)
+        try:
+            bones, drivers = remove_custom_face_channel(rig, self.channel_id)
+        except ValueError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
+        if context.scene.kai_custom_face_selected_id == self.channel_id:
+            channels = get_custom_face_channels(rig)
+            context.scene.kai_custom_face_selected_id = channels[0]["id"] if channels else ""
+        if rebuild:
+            try:
+                generate_face_module(rig, meshes)
+            except RuntimeError as exc:
+                self.report({"WARNING"}, f"Custom Controller removed; regenerate failed: {exc}")
+                return {"FINISHED"}
+        self.report({"INFO"}, f"Removed Custom Controller: {bones} bone, {drivers} drivers")
+        return {"FINISHED"}
+
+
 class KAI_OT_generate_face_module(bpy.types.Operator):
     bl_idname = "kai.generate_face_module"
     bl_label = "Generate Face Module"
-    bl_description = "Generate or rebuild Phase 1 Face controllers and mapped Shape Key drivers"
+    bl_description = "Generate or rebuild Built-in and Custom Face controllers and mapped Shape Key drivers"
     bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
@@ -1418,7 +2020,53 @@ class KAI_PT_facial(Panel):
         buttons = row.column(align=True)
         buttons.operator(KAI_OT_add_face_mesh.bl_idname, text="", icon="ADD")
         buttons.operator(KAI_OT_remove_face_mesh.bl_idname, text="", icon="REMOVE")
+
+        custom_box = face.box()
+        custom_box.label(text="Custom Face Control")
         selected_mesh = _selected_face_mesh(context.scene)
+        target_shape = context.scene.kai_custom_face_target_shape_key
+        target_valid = selected_mesh is not None and target_shape in _shape_key_names(selected_mesh)
+        target_row = custom_box.row(align=True)
+        target_row.label(text="Target Shape Key")
+        target_select = target_row.row(align=True)
+        target_select.enabled = selected_mesh is not None and bool(_shape_key_names(selected_mesh))
+        target_op = target_select.operator(
+            KAI_OT_select_custom_target_shape.bl_idname,
+            text=target_shape if target_valid else "None",
+            icon="SHAPEKEY_DATA" if target_valid else "VIEWZOOM",
+        )
+        target_op.object_name = selected_mesh.name if selected_mesh is not None else ""
+        custom_box.prop(context.scene, "kai_custom_face_display_name", text="Display Name")
+        add_row = custom_box.row()
+        add_row.enabled = target_valid and bool(context.scene.kai_custom_face_display_name.strip())
+        add_row.operator(KAI_OT_add_custom_face_controller.bl_idname, icon="ADD")
+        if rig is None:
+            custom_box.label(text="Select a Kai Rig", icon="ERROR")
+        else:
+            custom_channels = get_custom_face_channels(rig)
+            if not custom_channels:
+                custom_box.label(text="No Custom Controllers", icon="INFO")
+            for channel in custom_channels:
+                row = custom_box.row(align=True)
+                selected = context.scene.kai_custom_face_selected_id == channel["id"]
+                select_op = row.operator(
+                    KAI_OT_select_custom_face_controller.bl_idname,
+                    text=channel["display_name"],
+                    icon="RADIOBUT_ON" if selected else "RADIOBUT_OFF",
+                )
+                select_op.channel_id = channel["id"]
+                rename_op = row.operator(
+                    KAI_OT_rename_custom_face_controller.bl_idname,
+                    text="",
+                    icon="GREASEPENCIL",
+                )
+                rename_op.channel_id = channel["id"]
+                remove_op = row.operator(
+                    KAI_OT_remove_custom_face_controller.bl_idname,
+                    text="",
+                    icon="X",
+                )
+                remove_op.channel_id = channel["id"]
         mapping_box = face.box()
         mapping_box.label(text="Facial Shape Key Mapping")
         if rig is None:
@@ -1468,6 +2116,45 @@ class KAI_PT_facial(Panel):
                     )
                     operator.object_name = selected_mesh.name
                     operator.channel = channel
+            custom_channels = get_custom_face_channels(rig)
+            custom_expanded = context.scene.kai_face_mapping_expand_custom
+            header = mapping_box.row()
+            header.prop(
+                context.scene,
+                "kai_face_mapping_expand_custom",
+                text="Custom",
+                icon="TRIA_DOWN" if custom_expanded else "TRIA_RIGHT",
+                emboss=False,
+            )
+            if custom_expanded:
+                column = mapping_box.column(align=True)
+                if not custom_channels:
+                    column.label(text="No Custom Channels", icon="INFO")
+                for channel_data in custom_channels:
+                    channel = channel_data["id"]
+                    shape_name = target_mapping.get(channel, "")
+                    status = _face_mapping_status(rig, selected_mesh, shape_name)
+                    icon = {
+                        "NONE": "X",
+                        "INVALID": "QUESTION",
+                        "CONFLICT": "ERROR",
+                        "MAPPED": "CHECKMARK",
+                    }[status]
+                    display_name = shape_name or "None"
+                    if status == "INVALID":
+                        display_name += " (Missing)"
+                    elif status == "CONFLICT":
+                        display_name += " (Conflict)"
+                    row = column.row(align=True)
+                    row.alert = status in {"INVALID", "CONFLICT"}
+                    row.label(text=channel_data["display_name"])
+                    operator = row.operator(
+                        KAI_OT_set_face_mapping.bl_idname,
+                        text=display_name,
+                        icon=icon,
+                    )
+                    operator.object_name = selected_mesh.name
+                    operator.channel = channel
         if face_state == "PARTIAL":
             warning = face.row()
             warning.alert = True
@@ -1488,6 +2175,11 @@ CLASSES = (
     KAI_OT_remove_face_mesh,
     KAI_OT_set_face_mapping,
     KAI_OT_auto_detect_face_mapping,
+    KAI_OT_select_custom_target_shape,
+    KAI_OT_add_custom_face_controller,
+    KAI_OT_rename_custom_face_controller,
+    KAI_OT_select_custom_face_controller,
+    KAI_OT_remove_custom_face_controller,
     KAI_OT_generate_face_module,
     KAI_OT_generate_eye_module,
     KAI_OT_remove_eye_module,
@@ -1509,6 +2201,20 @@ def register():
     bpy.types.Scene.kai_face_mapping_expand_brow = bpy.props.BoolProperty(default=True)
     bpy.types.Scene.kai_face_mapping_expand_eye = bpy.props.BoolProperty(default=False)
     bpy.types.Scene.kai_face_mapping_expand_mouth = bpy.props.BoolProperty(default=False)
+    bpy.types.Scene.kai_face_mapping_expand_custom = bpy.props.BoolProperty(default=True)
+    bpy.types.Scene.kai_custom_face_display_name = bpy.props.StringProperty(
+        name="Display Name",
+        description="User-facing label for the Custom Facial Channel",
+    )
+    bpy.types.Scene.kai_custom_face_target_shape_key = bpy.props.StringProperty(
+        name="Target Shape Key",
+        description="Shape Key used by the next Custom Facial Controller",
+        options={"HIDDEN"},
+    )
+    bpy.types.Scene.kai_custom_face_selected_id = bpy.props.StringProperty(
+        name="Selected Custom Facial Channel",
+        options={"HIDDEN"},
+    )
     bpy.types.Armature.kai_eye_head_bone = bpy.props.StringProperty(
         name="Head Bone",
         description="Head bone used to generate the Kai Eye Module",
@@ -1527,6 +2233,10 @@ def unregister():
         "kai_face_mapping_expand_brow",
         "kai_face_mapping_expand_eye",
         "kai_face_mapping_expand_mouth",
+        "kai_face_mapping_expand_custom",
+        "kai_custom_face_display_name",
+        "kai_custom_face_target_shape_key",
+        "kai_custom_face_selected_id",
     ):
         if hasattr(bpy.types.Scene, name):
             delattr(bpy.types.Scene, name)

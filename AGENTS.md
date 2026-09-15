@@ -566,6 +566,266 @@ VIEW_3D
 
 ---
 
+## Blender User Environment Safety
+
+Mixamo Rig Kaiの検証では、**ユーザーが日常使用しているBlenderのPreferences、Extension Repository、インストール済みAdd-on / Extensionを変更・初期化・削除してはならない。**
+
+Repository Sync、Extension Install / Uninstall、Factory Startup、Preferences操作など、Blenderのユーザー環境を書き換える可能性があるテストは、必ず隔離された検証環境で実行すること。
+
+### 最重要ルール
+
+通常使用中のBlenderユーザープロファイルを、テスト用環境として直接使用しない。
+
+特に以下を禁止する。
+
+- 既存Extension Repository一覧の全削除
+- Blender公式Repositoryの削除・置換
+- ユーザーが追加したRepositoryの削除・置換
+- 既存Add-on / Extensionの一括削除
+- Factory Preferencesを通常プロファイルへ保存
+- 通常プロファイルの`userpref.blend`をテスト用設定で上書き
+- Repository検証のために既存Repository設定全体を初期化
+- テスト後にユーザー環境を「元に戻す」ことを前提とした破壊的操作
+
+「あとで復元する」ではなく、**最初から実環境へ触れないこと**を優先する。
+
+---
+
+## Repository / Install Test Isolation
+
+以下を行うテストは、必ず一時的・破棄可能なBlenderユーザー環境で実施する。
+
+- Repository追加
+- Repository削除
+- Repository Sync
+- Extension Discovery
+- Extension Install
+- Extension Uninstall
+- Extension Enable / Disable
+- Preferences保存
+- Factory Startupを伴う設定テスト
+- Repository Index切り替え
+- Extension Repository競合テスト
+
+### 推奨方針
+
+テスト開始時に、対象Blender Version用の一時ユーザー環境を作成する。
+
+例:
+
+```text
+temp/
+└─ blender-user-env/
+   ├─ config/
+   ├─ scripts/
+   └─ extensions/
+```
+
+対象Blender Versionで利用可能なユーザーリソースパス / 環境変数を使用し、通常のユーザー設定ディレクトリとは分離すること。
+
+環境変数名やディレクトリ仕様はBlender Versionによって確認し、推測で使用しない。
+
+---
+
+## Real User Profile Protection
+
+テスト開始前に、Blenderが参照しているユーザーリソースパスを確認する。
+
+少なくとも以下を確認すること。
+
+```python
+import bpy
+
+print(bpy.utils.user_resource("CONFIG"))
+print(bpy.utils.user_resource("SCRIPTS"))
+```
+
+Repository / Install系の自動テストで、これらが通常のユーザー環境を指している場合は、破壊的テストを開始しない。
+
+通常環境の例:
+
+```text
+%APPDATA%\Blender Foundation\Blender\<version>\
+```
+
+この配下を直接書き換えるRepository / Installテストは禁止する。
+
+---
+
+## Preferences Save Rule
+
+テストコードからPreferencesを保存する必要がある場合は、隔離環境であることを確認してから実行する。
+
+通常ユーザープロファイルに対して以下のような操作を行わない。
+
+```text
+Save Preferences
+Factory Preferencesの永続保存
+Repository一覧の永続保存
+テスト用Add-on状態の永続保存
+```
+
+通常プロファイルを検出した場合は、テストを中止して報告する。
+
+---
+
+## Repository Mutation Rule
+
+Kai Extension Repositoryのテストでは、**Kai Repositoryだけを操作対象とする。**
+
+既存Repository一覧全体を書き換えない。
+
+禁止例:
+
+```text
+既存Repositoryを全削除
+↓
+Kai Repositoryだけ追加
+↓
+テスト
+```
+
+推奨:
+
+```text
+隔離環境を作成
+↓
+必要なRepositoryだけ追加
+↓
+テスト
+↓
+隔離環境を破棄
+```
+
+どうしても既存Repositoryを利用する非破壊テストを行う場合でも、
+
+- 既存Repositoryを削除しない
+- Blender公式Repositoryを変更しない
+- 他プロジェクトのRepositoryを変更しない
+- ユーザーがインストール済みのExtensionを削除しない
+
+こと。
+
+---
+
+## Add-on / Extension Safety
+
+KaiのInstall / UninstallテストはKai自身だけを対象とする。
+
+以下を禁止する。
+
+- 他Add-onの削除
+- 他Extensionの削除
+- 他ExtensionのEnable / Disable変更
+- User Scripts配下の一括削除
+- Extensionディレクトリの一括初期化
+
+テストCleanupもKaiが生成・インストールした対象だけを削除する。
+
+---
+
+## Before / After Verification
+
+Repository / Install系テストでは、テスト前後の環境を検証する。
+
+隔離環境であっても、最低限以下を記録する。
+
+```text
+User Config Path:
+User Scripts Path:
+Repository Count Before:
+Repository Count After:
+Installed Kai Version Before:
+Installed Kai Version After:
+Test Environment Disposable: Yes / No
+```
+
+通常ユーザー環境を使用していないことを完了報告へ明記する。
+
+---
+
+## Fail Safe
+
+隔離環境の作成に失敗した場合、Repository / Install / Preferences書き換えテストを実行しない。
+
+その場合は、
+
+```text
+Repository / Install verification skipped:
+safe isolated Blender user environment could not be created.
+```
+
+のように報告する。
+
+**検証を完遂することより、ユーザー環境を保護することを優先する。**
+
+---
+
+## Release Verification Rule
+
+GitHub ReleaseやExtension Repository公開後の実インストール確認も、原則として隔離環境で行う。
+
+検証項目:
+
+```text
+Repository Sync
+Discovery
+Install
+Enable
+Kai UI
+Version
+```
+
+これらを確認するために、普段使用しているBlender環境を初期化・変更する必要はない。
+
+通常環境で最終確認を行う場合は、Kaiの追加・更新のような非破壊操作だけに限定する。
+
+---
+
+## Report Rule
+
+Repository / Install / Preferences関連の検証を行った場合、完了報告へ以下を追加する。
+
+```text
+Blender User Environment:
+Isolated / Normal
+
+User Config Path:
+<path>
+
+Existing User Repositories Modified:
+No
+
+Existing Add-ons / Extensions Modified:
+No
+
+Preferences Persisted To Normal Profile:
+No
+
+Cleanup:
+Temporary test environment removed / retained for investigation
+```
+
+---
+
+## Incident Prevention Principle
+
+目的は、
+
+**Kaiの検証によって、ユーザーが普段使っているBlenderの設定・Repository・Add-on / Extension環境を失わないこと**
+
+である。
+
+テスト都合でユーザー環境を初期化しない。
+
+「テスト環境をユーザー環境へ近づける」のではなく、
+
+**ユーザー環境を複製・隔離してテストする**
+
+方向を優先する。
+
+---
+
 # Existing Manual Installation
 
 An older manually installed Kai package may conflict with the Repository version.

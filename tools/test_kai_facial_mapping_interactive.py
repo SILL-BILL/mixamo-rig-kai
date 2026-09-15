@@ -38,11 +38,21 @@ mesh_data = bpy.data.meshes.new("KaiMappingInteractiveMesh")
 mesh = bpy.data.objects.new("KaiMappingInteractiveMesh", mesh_data)
 bpy.context.collection.objects.link(mesh)
 mesh.shape_key_add(name="Basis")
-mesh.shape_key_add(name="Angry_Eye_Left")
+mesh.shape_key_add(name="Cheek_Custom")
+custom_channel = kai_facial.add_custom_face_channel(rig, "頬ふくらませ")
 kai_facial.ensure_face_mesh_mapping(rig, mesh)
+item = bpy.context.scene.kai_face_meshes.add()
+item.object = mesh
+bpy.context.scene.kai_face_mesh_index = 0
 
 user32 = ctypes.windll.user32
-state = {"step": 0, "invoke": None, "execute": None}
+state = {
+    "step": 0,
+    "target_invoke": None,
+    "target_execute": None,
+    "invoke": None,
+    "execute": None,
+}
 
 
 def press_key(key):
@@ -64,15 +74,41 @@ def run_test():
             area=area,
             region=region,
         ):
-            state["invoke"] = bpy.ops.kai.set_face_mapping(
+            state["target_invoke"] = bpy.ops.kai.select_custom_target_shape(
                 "INVOKE_DEFAULT",
                 object_name=mesh.name,
-                channel="eye_angry_l",
             )
-        print("KAI_MAPPING_INVOKE_RESULT", state["invoke"])
+        print("KAI_CUSTOM_TARGET_INVOKE_RESULT", state["target_invoke"])
         state["step"] = 2
         return 0.8
     if state["step"] == 2:
+        press_key(0x1B)
+        state["target_execute"] = bpy.ops.kai.select_custom_target_shape(
+            "EXEC_DEFAULT",
+            object_name=mesh.name,
+            shape_key="Cheek_Custom",
+        )
+        print("KAI_CUSTOM_TARGET_EXECUTE_RESULT", state["target_execute"])
+        state["step"] = 3
+        return 0.8
+    if state["step"] == 3:
+        area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
+        region = next(region for region in area.regions if region.type == "WINDOW")
+        with bpy.context.temp_override(
+            window=bpy.context.window,
+            screen=bpy.context.screen,
+            area=area,
+            region=region,
+        ):
+            state["invoke"] = bpy.ops.kai.set_face_mapping(
+                "INVOKE_DEFAULT",
+                object_name=mesh.name,
+                channel=custom_channel["id"],
+            )
+        print("KAI_MAPPING_INVOKE_RESULT", state["invoke"])
+        state["step"] = 4
+        return 0.8
+    if state["step"] == 4:
         press_key(0x1B)  # Close the popup after confirming it opened.
         area = next(area for area in bpy.context.screen.areas if area.type == "VIEW_3D")
         region = next(region for region in area.regions if region.type == "WINDOW")
@@ -85,19 +121,23 @@ def run_test():
             state["execute"] = bpy.ops.kai.set_face_mapping(
                 "EXEC_DEFAULT",
                 object_name=mesh.name,
-                channel="eye_angry_l",
-                shape_key="Angry_Eye_Left",
+                channel=custom_channel["id"],
+                shape_key="Cheek_Custom",
             )
         print("KAI_MAPPING_EXECUTE_RESULT", state["execute"])
-        state["step"] = 3
+        state["step"] = 5
         return 0.8
 
     mapping = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
-    selected = mapping["eye_angry_l"]
+    selected = mapping[custom_channel["id"]]
     success = (
-        state["invoke"] == {"RUNNING_MODAL"}
+        state["target_invoke"] == {"RUNNING_MODAL"}
+        and state["target_execute"] == {"FINISHED"}
+        and bpy.context.scene.kai_custom_face_target_shape_key == "Cheek_Custom"
+        and bpy.context.scene.kai_custom_face_display_name == "Cheek_Custom"
+        and state["invoke"] == {"RUNNING_MODAL"}
         and state["execute"] == {"FINISHED"}
-        and selected == "Angry_Eye_Left"
+        and selected == "Cheek_Custom"
     )
     print("KAI_MAPPING_INTERACTIVE_OK", success, "selected=", selected)
     bpy.ops.wm.quit_blender()

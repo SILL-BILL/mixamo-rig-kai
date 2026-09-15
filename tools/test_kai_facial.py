@@ -1,4 +1,4 @@
-"""Blender background regression test for Kai Facial v0.1 Phase 1.2."""
+"""Blender background regression test for Kai Facial v0.1 Phase 2."""
 
 import sys
 import importlib.util
@@ -385,6 +385,307 @@ def check_face(rig, mesh, eyebrow, eyelash):
     assert_true(conflict.data.shape_keys.animation_data.drivers.find(conflict_path) is not None, "Conflict driver removed")
 
 
+def check_custom_face_channels(rig, mesh, eyebrow, eyelash):
+    kai_facial._set_active_object(rig)
+    bpy.context.scene.kai_face_mesh_index = next(
+        index
+        for index, item in enumerate(bpy.context.scene.kai_face_meshes)
+        if item.object == mesh
+    )
+    try:
+        kai_facial.add_custom_face_channel(rig, "")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("Empty Custom Display Name accepted")
+    definitions = (
+        ("Cheek_Puff", "Cheek Puff"),
+        ("Tongue_Custom", "Tongue_Custom"),
+        ("Tears", "Tears"),
+        ("Special_Face", "Special_Face"),
+        ("Extra_Face", "Extra_Face"),
+    )
+    for shape_name, _display_name in definitions:
+        mesh.shape_key_add(name=shape_name)
+    mesh.shape_key_add(name="Custom_Conflict")
+    existing_positions = {}
+    for index, (shape_name, display_name) in enumerate(definitions, 1):
+        assert_true(
+            bpy.ops.kai.select_custom_target_shape(
+                object_name=mesh.name,
+                shape_key=shape_name,
+            ) == {"FINISHED"},
+            f"Target Shape Key select: {shape_name}",
+        )
+        assert_true(bpy.context.scene.kai_custom_face_display_name == shape_name, "Display Name auto fill")
+        bpy.context.scene.kai_custom_face_display_name = display_name
+        assert_true(
+            bpy.ops.kai.add_custom_face_controller() == {"FINISHED"},
+            f"Custom Controller add: {shape_name}",
+        )
+        channel_id = f"custom_{index:03d}"
+        bone_name = kai_facial.custom_face_bone_name(channel_id)
+        assert_true(rig.pose.bones.get(bone_name) is not None, f"Custom Controller generated: {channel_id}")
+        for saved_name, saved_head in existing_positions.items():
+            assert_true(
+                (rig.data.bones[saved_name].head_local - saved_head).length < 0.0001,
+                f"existing Custom Controller moved after add: {saved_name}",
+            )
+        existing_positions[bone_name] = rig.data.bones[bone_name].head_local.copy()
+
+    conflict_path = 'key_blocks["Custom_Conflict"].value'
+    conflict_curve = mesh.data.shape_keys.driver_add(conflict_path)
+    conflict_curve.driver.expression = "0.25"
+    assert_true(
+        bpy.ops.kai.select_custom_target_shape(
+            object_name=mesh.name,
+            shape_key="Custom_Conflict",
+        ) == {"FINISHED"},
+        "Conflicting Target Shape Key remains selectable",
+    )
+    try:
+        result = bpy.ops.kai.add_custom_face_controller()
+    except RuntimeError as exc:
+        assert_true("Existing non-Kai driver" in str(exc), "Custom Add Conflict detail")
+    else:
+        assert_true(result == {"CANCELLED"}, "Custom Add Conflict rule")
+    mesh.data.shape_keys.driver_remove(conflict_path)
+
+    channels = kai_facial.get_custom_face_channels(rig)
+    assert_true([item["id"] for item in channels] == [f"custom_{i:03d}" for i in range(1, 6)], "Custom IDs/order")
+    assert_true(channels[0]["display_name"] == "Cheek Puff", "Display Name separated from Internal ID")
+    assert_true(
+        bpy.ops.kai.rename_custom_face_controller(
+            channel_id="custom_001",
+            display_name="Cheek Puff Renamed",
+        ) == {"FINISHED"},
+        "Custom Display Name rename",
+    )
+    channels = kai_facial.get_custom_face_channels(rig)
+    assert_true(channels[0]["id"] == "custom_001", "Internal ID changed after Display Name rename")
+    assert_true(channels[0]["display_name"] == "Cheek Puff Renamed", "Display Name rename persistence")
+    assert_true(
+        len([obj for obj in bpy.data.objects if obj.get("kai_face_label_armature") == rig.data.name]) == 5,
+        "Custom Label objects duplicated after rename/regenerate",
+    )
+    assert_true(rig.data[kai_facial.CUSTOM_FACE_CHANNELS_PROPERTY], "Custom definitions property")
+    payload = json.loads(rig.data[kai_facial.CUSTOM_FACE_CHANNELS_PROPERTY])
+    assert_true(payload["schema_version"] == 1, "Custom definition schema")
+    assert_true(len(payload["channels"]) == 5, "Custom definition count")
+
+    custom_root = rig.pose.bones[kai_facial.FACE_CUSTOM_ROOT]
+    assert_true(custom_root.parent.name == kai_facial.FACE_ROOT, "Face_CustomRoot parent")
+    assert_true(not custom_root.bone.use_deform, "Face_CustomRoot deform")
+    assert_true(not custom_root.bone.hide_select, "Face_CustomRoot must remain selectable")
+    assert_true(not any(custom_root.lock_location), "Face_CustomRoot move")
+    assert_true(all(custom_root.lock_rotation), "Face_CustomRoot rotation lock")
+    assert_true(not any(custom_root.lock_scale), "Face_CustomRoot scale")
+
+    custom_specs = kai_facial._custom_face_controller_specs(rig)
+    previous_z = None
+    built_in_max_x = max(rig.data.bones[spec["name"]].head_local.x for spec in kai_facial.FACE_CONTROLLERS)
+    for spec in custom_specs:
+        pbone = rig.pose.bones[spec["name"]]
+        track = rig.pose.bones[spec["track_name"]]
+        label = rig.pose.bones[spec["label_name"]]
+        assert_true(pbone.parent.name == kai_facial.FACE_CUSTOM_ROOT, f"Custom parent: {pbone.name}")
+        assert_true(track.parent.name == kai_facial.FACE_CUSTOM_ROOT, f"Custom track parent: {track.name}")
+        assert_true(
+            [collection.name for collection in pbone.bone.collections] == [kai_facial.FACE_CUSTOM_COLLECTION],
+            f"Custom Knob collection: {pbone.name}",
+        )
+        assert_true(
+            [collection.name for collection in track.bone.collections] == [kai_facial.FACE_CUSTOM_UI_COLLECTION],
+            f"Custom Bar collection: {track.name}",
+        )
+        assert_true(not pbone.bone.hide_select, f"Custom Knob selection disabled: {pbone.name}")
+        assert_true(track.bone.hide_select and not track.bone.use_deform, f"Custom track safety: {track.name}")
+        assert_true(all(track.lock_location) and all(track.lock_rotation) and all(track.lock_scale), f"Custom track locks: {track.name}")
+        assert_true(track.custom_shape is not None, f"Custom track shape: {track.name}")
+        assert_true(
+            all(
+                abs(value - expected) < 0.0001
+                for value, expected in zip(
+                    track.custom_shape_scale_xyz,
+                    kai_facial.CUSTOM_FACE_TRACK_DISPLAY_SCALE,
+                )
+            ),
+            f"Custom Bar scale: {track.name}",
+        )
+        assert_true(track.color.palette == "CUSTOM", f"Custom Bar color mode: {track.name}")
+        for state in ("normal", "select", "active"):
+            assert_true(
+                all(
+                    abs(value - expected) < 0.0001
+                    for value, expected in zip(
+                        getattr(track.color.custom, state),
+                        kai_facial.CUSTOM_FACE_UI_COLOR,
+                    )
+                ),
+                f"Custom Bar {state} color: {track.name}",
+            )
+        assert_true(label.parent.name == kai_facial.FACE_CUSTOM_ROOT, f"Custom label parent: {label.name}")
+        assert_true(
+            [collection.name for collection in label.bone.collections] == [kai_facial.FACE_CUSTOM_UI_COLLECTION],
+            f"Custom Label collection: {label.name}",
+        )
+        assert_true(label.bone.hide_select and not label.bone.use_deform, f"Custom label safety: {label.name}")
+        assert_true(all(label.lock_location) and all(label.lock_rotation) and all(label.lock_scale), f"Custom label locks: {label.name}")
+        assert_true(label.custom_shape is not None and label.custom_shape.type == "FONT", f"Custom label Text shape: {label.name}")
+        assert_true(label.custom_shape.hide_select and label.custom_shape.hide_render, f"Custom label Object selection/render safety: {label.name}")
+        assert_true(label.custom_shape.data.body == spec["display_name"], f"Custom label text: {label.name}")
+        assert_true(
+            all(
+                abs(value - expected) < 0.0001
+                for value, expected in zip(
+                    label.custom_shape_scale_xyz,
+                    kai_facial.CUSTOM_FACE_LABEL_DISPLAY_SCALE,
+                )
+            ),
+            f"Custom Label scale: {label.name}",
+        )
+        assert_true(label.color.palette == "CUSTOM", f"Custom Label color mode: {label.name}")
+        for state in ("normal", "select", "active"):
+            assert_true(
+                all(
+                    abs(value - expected) < 0.0001
+                    for value, expected in zip(
+                        getattr(label.color.custom, state),
+                        kai_facial.CUSTOM_FACE_UI_COLOR,
+                    )
+                ),
+                f"Custom Label {state} color: {label.name}",
+            )
+        assert_true(abs((track.bone.head_local.x - pbone.bone.head_local.x) - 0.5) < 0.0001, f"Custom track range: {track.name}")
+        assert_true(not pbone.bone.use_deform, f"Custom deform: {pbone.name}")
+        assert_true(pbone.custom_shape is not None and pbone.custom_shape.name.startswith("cs_switch"), f"Custom cs_switch shape: {pbone.name}")
+        assert_true(
+            all(abs(value) < 0.0001 for value in pbone.custom_shape_rotation_euler),
+            f"Custom cs_switch orientation: {pbone.name}",
+        )
+        assert_true(
+            all(
+                abs(value - expected) < 0.0001
+                for value, expected in zip(
+                    pbone.custom_shape_scale_xyz,
+                    kai_facial.CUSTOM_FACE_CONTROLLER_DISPLAY_SCALE,
+                )
+            ),
+            f"Custom cs_switch scale: {pbone.name}",
+        )
+        assert_true(pbone.color.palette == "CUSTOM", f"Custom Knob color mode: {pbone.name}")
+        for state in ("normal", "select", "active"):
+            assert_true(
+                all(
+                    abs(value - expected) < 0.0001
+                    for value, expected in zip(
+                        getattr(pbone.color.custom, state),
+                        kai_facial.CUSTOM_FACE_CONTROLLER_COLOR[state],
+                    )
+                ),
+                f"Custom Knob {state} color: {pbone.name}",
+            )
+        assert_true(tuple(pbone.lock_location) == (False, True, True), f"Custom location locks: {pbone.name}")
+        assert_true(all(pbone.lock_rotation), f"Custom rotation locks: {pbone.name}")
+        assert_true(all(pbone.lock_scale), f"Custom scale locks: {pbone.name}")
+        limit = pbone.constraints.get("KAI Normalized Location")
+        assert_true(limit is not None, f"Custom limit: {pbone.name}")
+        assert_true(limit.min_x == 0.0 and limit.max_x == 1.0, f"Custom 0..1 limit: {pbone.name}")
+        assert_true(pbone.bone.head_local.x > built_in_max_x, f"Custom UI not on screen-right side: {pbone.name}")
+        if previous_z is not None:
+            assert_true(abs((previous_z - pbone.bone.head_local.z) - kai_facial.CUSTOM_FACE_SPACING) < 0.0001, "Custom vertical spacing")
+        previous_z = pbone.bone.head_local.z
+
+    eyebrow.shape_key_add(name="Cheek_Puff")
+    kai_facial.set_face_channel_mapping(rig, eyebrow, "custom_001", "Cheek_Puff")
+    controllers, drivers, missing = kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
+    assert_true((controllers, drivers, missing) == (20, 48, 0), f"Custom mapped generation: {controllers}/{drivers}/{missing}")
+    assert_true(kai_facial._face_mapping_counts(rig, [mesh, eyebrow, eyelash]) == (0, 87), "Custom None counts")
+
+    cheek = rig.pose.bones[kai_facial.custom_face_bone_name("custom_001")]
+    label = rig.pose.bones[kai_facial._custom_face_label_name("custom_001")]
+    label_location = label.matrix.translation.copy()
+    cheek.location.x = 0.65
+    bpy.context.view_layer.update()
+    assert_true((label.matrix.translation - label_location).length < 0.0001, "Label fixed while Knob moves")
+    assert_true(abs(mesh.data.shape_keys.key_blocks["Cheek_Puff"].value - 0.65) < 0.0001, "Custom Driver value")
+    assert_true(abs(eyebrow.data.shape_keys.key_blocks["Cheek_Puff"].value - 0.65) < 0.0001, "Custom Multi Mesh Driver")
+    cheek_driver = mesh.data.shape_keys.animation_data.drivers.find('key_blocks["Cheek_Puff"].value')
+    assert_true("min(max(" in cheek_driver.driver.expression, "Custom explicit Clamp")
+    cheek.location.x = 0.0
+
+    kai_facial.set_face_channel_mapping(rig, mesh, "custom_003", "Missing_Tears")
+    _controllers, _drivers, missing = kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
+    assert_true(missing == 1, "Custom Missing warning count")
+    kai_facial.set_face_channel_mapping(rig, mesh, "custom_003", "")
+
+    conflict_path = 'key_blocks["Custom_Conflict"].value'
+    conflict_curve = mesh.data.shape_keys.driver_add(conflict_path)
+    conflict_curve.driver.expression = "0.25"
+    kai_facial.set_face_channel_mapping(rig, mesh, "custom_005", "Custom_Conflict")
+    assert_true(kai_facial._face_mapping_status(rig, mesh, "Custom_Conflict") == "CONFLICT", "Custom Conflict status")
+    try:
+        kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
+    except RuntimeError as exc:
+        assert_true("KaiFaceMesh.Custom_Conflict" in str(exc), "Custom Conflict detail")
+    else:
+        raise AssertionError("Custom non-Kai Driver conflict was overwritten")
+    assert_true(mesh.data.shape_keys.animation_data.drivers.find(conflict_path) is not None, "Custom Conflict driver removed")
+    kai_facial.set_face_channel_mapping(rig, mesh, "custom_005", "Extra_Face")
+    mesh.data.shape_keys.driver_remove(conflict_path)
+    kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
+
+    tongue_path = 'key_blocks["Tongue_Custom"].value'
+    assert_true(mesh.data.shape_keys.animation_data.drivers.find(tongue_path) is not None, "Custom Driver before individual remove")
+    assert_true(
+        bpy.ops.kai.remove_custom_face_controller(channel_id="custom_002") == {"FINISHED"},
+        "individual Custom remove",
+    )
+    assert_true(rig.data.bones.get(kai_facial.custom_face_bone_name("custom_002")) is None, "Custom bone after remove")
+    assert_true(rig.data.bones.get(kai_facial._custom_face_track_name("custom_002")) is None, "Custom track after remove")
+    assert_true(rig.data.bones.get(kai_facial._custom_face_label_name("custom_002")) is None, "Custom label after remove")
+    assert_true(
+        len([obj for obj in bpy.data.objects if obj.get("kai_face_label_armature") == rig.data.name]) == 4,
+        "Custom Label object cleanup after individual remove",
+    )
+    assert_true(mesh.data.shape_keys.animation_data.drivers.find(tongue_path) is None, "Custom Driver after remove")
+    assert_true(rig.data.bones.get(kai_facial.custom_face_bone_name("custom_001")) is not None, "other Custom affected")
+    assert_true(mesh.data.shape_keys.animation_data.drivers.find('key_blocks["Brow_Up_L"].value') is not None, "Built-in affected by Custom remove")
+    mapping = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
+    assert_true("custom_002" not in mapping, "Custom Mapping after remove")
+    after_delete = kai_facial.add_custom_face_channel(rig, "After Delete")
+    assert_true(after_delete["id"] == "custom_006", "Deleted Internal ID was unexpectedly reused")
+    kai_facial.remove_custom_face_channel(rig, after_delete["id"])
+
+    custom_root = rig.pose.bones[kai_facial.FACE_CUSTOM_ROOT]
+    follow_names = (
+        kai_facial.custom_face_bone_name("custom_001"),
+        kai_facial._custom_face_track_name("custom_001"),
+        kai_facial._custom_face_label_name("custom_001"),
+    )
+    follow_before = {name: rig.pose.bones[name].matrix.translation.copy() for name in follow_names}
+    custom_root.location = (0.3, 0.0, 0.2)
+    custom_root.scale = (1.2, 1.2, 1.2)
+    bpy.context.view_layer.update()
+    for name in follow_names:
+        assert_true(
+            (rig.pose.bones[name].matrix.translation - follow_before[name]).length > 0.01,
+            f"Face_CustomRoot did not move {name}",
+        )
+    saved_location = custom_root.location.copy()
+    saved_scale = custom_root.scale.copy()
+    saved_custom_positions = {
+        item["name"]: rig.data.bones[item["name"]].head_local.copy()
+        for item in kai_facial._custom_face_controller_specs(rig)
+    }
+    kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
+    rebuilt_root = rig.pose.bones[kai_facial.FACE_CUSTOM_ROOT]
+    assert_true((rebuilt_root.location - saved_location).length < 0.0001, "Face_CustomRoot location rebuild")
+    assert_true((rebuilt_root.scale - saved_scale).length < 0.0001, "Face_CustomRoot scale rebuild")
+    for name, head in saved_custom_positions.items():
+        assert_true((rig.data.bones[name].head_local - head).length < 0.0001, f"Custom rest position rebuild: {name}")
+
+
 def check_eye(rig):
     kai_facial._set_active_object(rig)
     bpy.ops.object.mode_set(mode="OBJECT")
@@ -528,11 +829,14 @@ def check_mapping_persistence(rig, mesh, eyebrow, eyelash):
     eyebrow_name = eyebrow.name
     eyelash_name = eyelash.name
     expected_meshes = [mesh.name, eyebrow.name, eyelash.name]
+    expected_custom = kai_facial.get_custom_face_channels(rig)
+    expected_custom_mapping = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))["custom_001"]
     filepath = Path(tempfile.gettempdir()) / f"kai_facial_mapping_{uuid.uuid4().hex}.blend"
     try:
         bpy.ops.wm.save_as_mainfile(filepath=str(filepath), check_existing=False)
         kai_facial.set_face_channel_mapping(rig, mesh, "eye_angry_l", "Eyelid_Angry_L")
         kai_facial.set_face_channel_mapping(rig, mesh, "mouth_left", "MouthLeft")
+        kai_facial._write_custom_face_channels(rig, [])
         bpy.context.scene.kai_face_meshes.clear()
         bpy.ops.wm.open_mainfile(filepath=str(filepath))
 
@@ -546,6 +850,8 @@ def check_mapping_persistence(rig, mesh, eyebrow, eyelash):
         assert_true(restored["mouth_left"] == "MouthRight", "manual mapping persistence")
         assert_true(restored_meshes == expected_meshes, "Face Mesh list persistence")
         assert_true(kai_facial.get_face_mesh_mapping(rig)["schema_version"] == 2, "schema persistence")
+        assert_true(kai_facial.get_custom_face_channels(rig) == expected_custom, "Custom definition persistence")
+        assert_true(restored["custom_001"] == expected_custom_mapping, "Custom Mapping persistence")
         return rig, mesh, eyebrow, eyelash
     finally:
         if filepath.exists():
@@ -559,6 +865,8 @@ def check_independent_module_removal(rig, mesh, eyebrow, eyelash):
     assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face state before remove")
     assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye state before remove")
     mapping_before = rig.data[kai_facial.FACE_TARGETS_PROPERTY]
+    custom_before = rig.data[kai_facial.CUSTOM_FACE_CHANNELS_PROPERTY]
+    custom_count = len(kai_facial.get_custom_face_channels(rig))
     mesh_list_before = [item.object.name for item in bpy.context.scene.kai_face_meshes if item.object]
     face_bones_before = {
         bone.name for bone in rig.data.bones
@@ -582,6 +890,11 @@ def check_independent_module_removal(rig, mesh, eyebrow, eyelash):
     assert_true(kai_facial.face_module_state(rig) == "NOT_GENERATED", "Face state after remove")
     assert_true(kai_facial.eye_module_state(rig) == "GENERATED", "Eye affected by Face remove")
     assert_true(rig.data[kai_facial.FACE_TARGETS_PROPERTY] == mapping_before, "Face Mapping removed")
+    assert_true(rig.data[kai_facial.CUSTOM_FACE_CHANNELS_PROPERTY] == custom_before, "Custom definitions removed")
+    assert_true(
+        not [obj for obj in bpy.data.objects if obj.get("kai_face_label_armature") == rig.data.name],
+        "Custom Label objects remain after Face remove",
+    )
     assert_true(
         [item.object.name for item in bpy.context.scene.kai_face_meshes if item.object] == mesh_list_before,
         "Face Mesh list removed",
@@ -592,6 +905,16 @@ def check_independent_module_removal(rig, mesh, eyebrow, eyelash):
     assert_true(bpy.ops.kai.generate_face_module() == {"FINISHED"}, "Generate Face after remove")
     assert_true(kai_facial.face_module_state(rig) == "GENERATED", "Face state after restore")
     assert_true(rig.data[kai_facial.FACE_TARGETS_PROPERTY] == mapping_before, "Mapping changed after Face restore")
+    assert_true(rig.data[kai_facial.CUSTOM_FACE_CHANNELS_PROPERTY] == custom_before, "Custom definitions changed after Face restore")
+    assert_true(
+        len([obj for obj in bpy.data.objects if obj.get("kai_face_label_armature") == rig.data.name]) == custom_count,
+        "Custom Label objects not restored exactly once",
+    )
+    for channel in kai_facial.get_custom_face_channels(rig):
+        assert_true(
+            rig.data.bones.get(kai_facial.custom_face_bone_name(channel["id"])) is not None,
+            f"Custom Controller not restored: {channel['id']}",
+        )
     restored = kai_facial._mapping_for_mesh(rig, mesh, kai_facial.get_face_mapping(rig))
     assert_true(restored["eye_angry_l"] == "", "None changed through remove/regenerate")
     assert_true(restored["mouth_left"] == "MouthRight", "custom mapping changed through remove/regenerate")
@@ -605,11 +928,16 @@ rig, mesh, eyebrow, eyelash = create_fixture()
 assert_true(kai_facial.face_module_state(rig) == "NOT_GENERATED", "initial Face state")
 assert_true(kai_facial.eye_module_state(rig) == "NOT_GENERATED", "initial Eye state")
 check_face(rig, mesh, eyebrow, eyelash)
+check_custom_face_channels(rig, mesh, eyebrow, eyelash)
 check_eye(rig)
 rig, mesh, eyebrow, eyelash = check_mapping_persistence(rig, mesh, eyebrow, eyelash)
 check_independent_module_removal(rig, mesh, eyebrow, eyelash)
+for channel in list(kai_facial.get_custom_face_channels(rig)):
+    kai_facial.remove_custom_face_channel(rig, channel["id"])
+kai_facial.generate_face_module(rig, [mesh, eyebrow, eyelash])
 bones, drivers = kai_facial.remove_all_modules(rig)
 assert_true(drivers == 43, f"removed drivers: {drivers}")
+assert_true(bones == 28, f"removed module bones: {bones}")
 assert_true(not any(bone.get("kai_module") for bone in rig.data.bones), "module bones remain")
 assert_true(not rig.animation_data or len(rig.animation_data.drivers) == 0, "rig drivers remain")
 package.unregister()

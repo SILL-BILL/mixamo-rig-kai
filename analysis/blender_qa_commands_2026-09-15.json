@@ -1,0 +1,882 @@
+{
+  "schema_version": 1,
+  "source_session_log": "C:\\Users\\lost5\\.codex\\sessions\\2026\\09\\13\\rollout-2026-09-13T18-45-43-01a09a28-8b46-7c92-abda-5e9efaf4a8b7.jsonl",
+  "since_utc": "2026-09-15T00:00:00.0000000Z",
+  "extracted_at_utc": "2026-09-15T10:31:15.0499993Z",
+  "shell_command_count": 31,
+  "blender_invocation_count": 44.0,
+  "commands": [
+    {
+      "timestamp_utc": "2026-09-15T09:51:46.1530000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:52:05.3050000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:54:31.1040000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 2,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; Write-Output '=== ZHAO ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x01-Zhao\\Zhao-001\\Zhao.proto.ui.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py'; Write-Output '=== PAN ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py",
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:56:05.3420000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x01-Zhao\\Zhao-001\\Zhao.proto.ui.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:57:15.0040000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x01-Zhao\\Zhao-001\\Zhao.proto.ui.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:57:43.8510000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:58:07.0810000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:58:38.0830000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\inspect_phase2_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T09:59:35.9250000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 2,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; Write-Output '=== ZHAO ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x01-Zhao\\Zhao-001\\Zhao.proto.ui.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Output '=== PAN ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py",
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:00:27.1320000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:00:42.6250000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:01:26.0740000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial_mapping_interactive.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial_mapping_interactive.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:01:44.6620000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial_mapping_interactive.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial_mapping_interactive.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:01:58.8210000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\config'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"SCREEN_OPS\", dir(bpy.ops.screen)); print(\"WM_OPS\", [x for x in dir(bpy.ops.wm) if \"screen\" in x])'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_gui51\\config",
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:04:25.7450000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 1,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py"
+      ],
+      "explicit_quit_reported": false
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:04:46.0780000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "& 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python-expr 'import bpy; print([(p.identifier,p.type) for p in bpy.ops.screen.screenshot.get_rna_type().properties])'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": null,
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:05:09.1940000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:07:03.4880000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:07:30.6540000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python-expr 'import bpy; print(\"KAI_USER_CONFIG\", bpy.utils.user_resource(\"CONFIG\")); print(\"KAI_USER_SCRIPTS\", bpy.utils.user_resource(\"SCRIPTS\"))' --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:07:53.4480000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 2,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles'; Write-Output '=== ZHAO ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x01-Zhao\\Zhao-001\\Zhao.proto.ui.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; Write-Output '=== PAN ==='; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background 'D:\\3dmodel\\3dmodel-zzz\\x02-Pan\\001\\Pan.proto.blend' --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_models\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py",
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\test_phase2_real_model.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:08:09.5870000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_capture\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\capture_phase2_viewport.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:08:28.1310000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "& 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension build",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": null,
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": false
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:08:51.4630000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "& 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension install-file --help",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": null,
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": true,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": false
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:09:38.2200000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 4,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\datafiles'; $repoDir='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\extensions\\kai_dev'; New-Item -ItemType Directory -Path $repoDir -Force | Out-Null; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension repo-add kai_dev --name 'Kai Development QA' --directory $repoDir --clear-all; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --command extension repo-list; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --command extension install-file -r kai_dev -e 'D:\\dev-blender-addon\\mixamo-rig-kai\\mixamo_rig_kai-0.6.5.zip'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --background --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": true,
+      "repository_operation": true,
+      "install_or_uninstall_operation": true,
+      "clear_all": true,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:10:05.4010000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 4,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\datafiles'; $repoDir='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\extensions\\kai_dev'; New-Item -ItemType Directory -Path $repoDir -Force | Out-Null; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --command extension repo-add kai_dev --name 'Kai Development QA' --directory $repoDir --clear-all; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --command extension repo-list; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --command extension install-file -r kai_dev -e 'D:\\dev-blender-addon\\mixamo-rig-kai\\mixamo_rig_kai-0.6.5.zip'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --background --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_install51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": true,
+      "install_or_uninstall_operation": true,
+      "clear_all": true,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:10:36.2730000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "& 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension build",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": null,
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": false
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:11:42.7390000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --background --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:12:10.9420000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles'; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --background --python 'D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py'",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_b51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "D:\\dev-blender-addon\\mixamo-rig-kai\\tools\\test_kai_facial.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:12:22.1000000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 1,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "& 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension build; $zip='D:\\dev-blender-addon\\mixamo-rig-kai\\mixamo_rig_kai-0.6.5.zip'; Add-Type -AssemblyName System.IO.Compression.FileSystem; $a=[IO.Compression.ZipFile]::OpenRead($zip); $names=$a.Entries.FullName; $bad=$names | Where-Object { $_ -match '(^|/)(\\.git|\\.github|\\.vs|\\.vscode|\\.idea|__pycache__|\\.pytest_cache|\\.mypy_cache|\\.tox|tools|analysis|reports)(/|$)' -or $_ -match '(^|/)AGENTS\\.md$|\\.(pyc|pyo|log)$|\\.blend1$' }; $a.Dispose(); Write-Output ('SIZE=' + (Get-Item -LiteralPath $zip).Length); Write-Output ('SHA256=' + (Get-FileHash -LiteralPath $zip -Algorithm SHA256).Hash); Write-Output ('ENTRIES=' + $names.Count); Write-Output ('UNWANTED=' + ($bad -join ','))",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": null,
+        "BLENDER_USER_SCRIPTS": null,
+        "BLENDER_USER_DATAFILES": null,
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": false,
+      "install_or_uninstall_operation": false,
+      "clear_all": false,
+      "background": false,
+      "factory_startup": true,
+      "python_scripts": [],
+      "explicit_quit_reported": false
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:12:45.3310000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 3,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\datafiles'; $repoDir='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\extensions\\kai_dev'; New-Item -ItemType Directory -Path $repoDir -Force | Out-Null; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --factory-startup --command extension repo-add kai_dev --name 'Kai Final Build QA' --directory $repoDir --clear-all; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --command extension install-file -r kai_dev -e 'D:\\dev-blender-addon\\mixamo-rig-kai\\mixamo_rig_kai-0.6.5.zip'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 4.2\\blender.exe' --background --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final42\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": true,
+      "repository_operation": true,
+      "install_or_uninstall_operation": true,
+      "clear_all": true,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py"
+      ],
+      "explicit_quit_reported": true
+    },
+    {
+      "timestamp_utc": "2026-09-15T10:13:08.4300000Z",
+      "cwd": "file:///D:/dev-blender-addon/mixamo-rig-kai",
+      "exit_code": 0,
+      "blender_invocation_count": 3,
+      "blender_executables": [
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe",
+        "C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe"
+      ],
+      "command": "$env:BLENDER_USER_CONFIG='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\config'; $env:BLENDER_USER_SCRIPTS='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\scripts'; $env:BLENDER_USER_DATAFILES='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\datafiles'; $repoDir='C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\extensions\\kai_dev'; New-Item -ItemType Directory -Path $repoDir -Force | Out-Null; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --factory-startup --command extension repo-add kai_dev --name 'Kai Final Build QA' --directory $repoDir --clear-all; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --command extension install-file -r kai_dev -e 'D:\\dev-blender-addon\\mixamo-rig-kai\\mixamo_rig_kai-0.6.5.zip'; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }; & 'C:\\Program Files\\Blender Foundation\\Blender 5.1\\blender.exe' --background --python 'C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py'; exit $LASTEXITCODE",
+      "environment": {
+        "BLENDER_USER_RESOURCES": null,
+        "BLENDER_USER_CONFIG": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\config",
+        "BLENDER_USER_SCRIPTS": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\scripts",
+        "BLENDER_USER_DATAFILES": "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\phase2_final51\\datafiles",
+        "TEMP": null,
+        "TMP": null
+      },
+      "preferences_saved_reported": false,
+      "repository_operation": true,
+      "install_or_uninstall_operation": true,
+      "clear_all": true,
+      "background": true,
+      "factory_startup": true,
+      "python_scripts": [
+        "C:\\Users\\lost5\\.codex\\visualizations\\2026\\09\\13\\01a09a28-8b46-7c92-abda-5e9efaf4a8b7\\verify_dev_build_install.py"
+      ],
+      "explicit_quit_reported": true
+    }
+  ]
+}
