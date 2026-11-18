@@ -454,6 +454,25 @@ def check_custom_face_channels(rig, mesh, eyebrow, eyelash):
     channels = kai_facial.get_custom_face_channels(rig)
     assert_true([item["id"] for item in channels] == [f"custom_{i:03d}" for i in range(1, 6)], "Custom IDs/order")
     assert_true(channels[0]["display_name"] == "Cheek Puff", "Display Name separated from Internal ID")
+
+    # Regression P2: Display Name editing must never rebuild an animated controller.
+    cheek_name = kai_facial.custom_face_bone_name("custom_001")
+    cheek = rig.pose.bones[cheek_name]
+    cheek.location.x = 0.45
+    cheek.keyframe_insert(data_path="location", frame=1)
+    original_action = rig.animation_data.action
+    original_label = rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape
+    original_bone = rig.data.bones[cheek_name]
+    original_driver = mesh.data.shape_keys.animation_data.drivers.find('key_blocks["Cheek_Puff"].value')
+    assert_true(original_driver is not None, "rename regression driver exists")
+
+    # An independent Armature datablock duplicate initially shares Text custom shapes.
+    duplicate = rig.copy()
+    duplicate.data = rig.data.copy()
+    bpy.context.collection.objects.link(duplicate)
+    duplicate_label = duplicate.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape
+    assert_true(duplicate_label == original_label, "duplicate precondition shared label")
+    assert_true(duplicate_label.data.body == "Cheek Puff", "duplicate label before rename")
     assert_true(
         bpy.ops.kai.rename_custom_face_controller(
             channel_id="custom_001",
@@ -461,6 +480,27 @@ def check_custom_face_channels(rig, mesh, eyebrow, eyelash):
         ) == {"FINISHED"},
         "Custom Display Name rename",
     )
+    assert_true(abs(rig.pose.bones[cheek_name].location.x - 0.45) < 0.0001, "rename reset live facial pose")
+    assert_true(rig.animation_data.action == original_action, "rename lost animation Action")
+    assert_true(rig.data.bones[cheek_name] == original_bone, "rename recreated existing bone")
+    assert_true(
+        mesh.data.shape_keys.animation_data.drivers.find('key_blocks["Cheek_Puff"].value') == original_driver,
+        "rename recreated existing Shape Key driver",
+    )
+    assert_true(
+        rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape.data.body == "Cheek Puff Renamed",
+        "rename did not update target label",
+    )
+    assert_true(duplicate_label.data.body == "Cheek Puff", "rename altered duplicate rig label")
+    assert_true(
+        duplicate.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape == duplicate_label,
+        "rename replaced duplicate label",
+    )
+    # Removing the duplicate must not erase its still-referenced label from the original.
+    kai_facial.remove_face_module(duplicate)
+    assert_true(bpy.data.objects.get(original_label.name) == original_label, "duplicate remove deleted original label")
+    assert_true(rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape is not None, "original label lost")
+    bpy.data.objects.remove(duplicate, do_unlink=True)
     channels = kai_facial.get_custom_face_channels(rig)
     assert_true(channels[0]["id"] == "custom_001", "Internal ID changed after Display Name rename")
     assert_true(channels[0]["display_name"] == "Cheek Puff Renamed", "Display Name rename persistence")
