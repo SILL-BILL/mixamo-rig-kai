@@ -496,10 +496,13 @@ def check_custom_face_channels(rig, mesh, eyebrow, eyelash):
         duplicate.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape == duplicate_label,
         "rename replaced duplicate label",
     )
-    # Removing the duplicate must not erase its still-referenced label from the original.
+    # Removing the duplicate must not erase any Text label still used by the original.
+    renamed_label = rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape
+    other_label = rig.pose.bones[kai_facial._custom_face_label_name("custom_002")].custom_shape
     kai_facial.remove_face_module(duplicate)
-    assert_true(bpy.data.objects.get(original_label.name) == original_label, "duplicate remove deleted original label")
-    assert_true(rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape is not None, "original label lost")
+    assert_true(bpy.data.objects.get(renamed_label.name) == renamed_label, "duplicate remove deleted renamed original label")
+    assert_true(bpy.data.objects.get(other_label.name) == other_label, "duplicate remove deleted shared original label")
+    assert_true(rig.pose.bones[kai_facial._custom_face_label_name("custom_001")].custom_shape == renamed_label, "original label lost")
     bpy.data.objects.remove(duplicate, do_unlink=True)
     channels = kai_facial.get_custom_face_channels(rig)
     assert_true(channels[0]["id"] == "custom_001", "Internal ID changed after Display Name rename")
