@@ -667,8 +667,18 @@ def _custom_face_controller_specs(rig):
     return specs
 
 
+def _label_is_used_by_other_rig(label_obj, rig):
+    """Custom shape objects can be shared when an armature object is duplicated."""
+    return any(
+        other.type == "ARMATURE"
+        and other != rig
+        and any(pbone.custom_shape == label_obj for pbone in other.pose.bones)
+        for other in bpy.data.objects
+    )
+
+
 def _remove_custom_face_label_objects(rig, channel_id=None):
-    """Remove generated Text custom-shape sources owned by this rig."""
+    """Remove only Text labels that no other rig still uses."""
     objects = set()
     for pbone in rig.pose.bones:
         bone_channel = pbone.bone.get("kai_custom_face_channel")
@@ -677,20 +687,33 @@ def _remove_custom_face_label_objects(rig, channel_id=None):
         custom_shape = pbone.custom_shape
         if custom_shape is not None and custom_shape.get("kai_face_label"):
             objects.add(custom_shape)
-    for obj in bpy.data.objects:
-        if not obj.get("kai_face_label"):
-            continue
-        if obj.get("kai_face_label_armature") != rig.data.name:
-            continue
-        if channel_id is not None and obj.get("kai_custom_face_channel") != channel_id:
-            continue
-        objects.add(obj)
+
+    # Legacy labels only store the Armature datablock name. That cannot identify
+    # one rig object when linked duplicates share the same Armature data.
+    shared_data = any(
+        other.type == "ARMATURE" and other != rig and other.data == rig.data
+        for other in bpy.data.objects
+    )
+    if not shared_data:
+        for obj in bpy.data.objects:
+            if not obj.get("kai_face_label"):
+                continue
+            if obj.get("kai_face_label_armature") != rig.data.name:
+                continue
+            if channel_id is not None and obj.get("kai_custom_face_channel") != channel_id:
+                continue
+            objects.add(obj)
+
+    removed = 0
     for obj in objects:
+        if _label_is_used_by_other_rig(obj, rig):
+            continue
         data = obj.data
         bpy.data.objects.remove(obj, do_unlink=True)
+        removed += 1
         if data is not None and data.users == 0 and data.bl_rna.identifier == "Curve":
             bpy.data.curves.remove(data)
-    return len(objects)
+    return removed
 
 
 def _create_custom_face_label_object(rig, spec):
@@ -716,6 +739,35 @@ def _create_custom_face_label_object(rig, spec):
     obj.hide_viewport = True
     obj.hide_set(True)
     return obj
+
+
+def _update_custom_face_display(rig, channel):
+    """Rename the displayed label without rebuilding bones, poses or drivers."""
+    channel_id = channel["id"]
+    display_name = channel["display_name"]
+    for name in (
+        custom_face_bone_name(channel_id),
+        _custom_face_label_name(channel_id),
+    ):
+        bone = rig.data.bones.get(name)
+        if bone is not None and bone.get("kai_custom_face_channel") == channel_id:
+            bone["kai_custom_face_display_name"] = display_name
+
+    label = rig.pose.bones.get(_custom_face_label_name(channel_id))
+    if label is None or label.bone.get("kai_custom_face_channel") != channel_id:
+        return
+    shape = label.custom_shape
+    if shape is None:
+        label.custom_shape = _create_custom_face_label_object(rig, channel)
+    elif shape.type == "FONT" and shape.get("kai_face_label"):
+        if _label_is_used_by_other_rig(shape, rig):
+            # A duplicated rig may still use the same Text object. Copy on write.
+            label.custom_shape = _create_custom_face_label_object(rig, channel)
+        else:
+            if shape.data.users > 1:
+                shape.data = shape.data.copy()
+            shape.data.body = display_name
+            shape["kai_face_label_armature"] = rig.data.name
 
 
 def _face_output_specs(rig):
@@ -1002,6 +1054,8 @@ def remove_custom_face_channel(rig, channel_id):
             keys.driver_remove(fcurve.data_path, fcurve.array_index)
             removed_drivers += 1
 
+    # Capture label references before removing their Pose Bones.
+    _remove_custom_face_label_objects(rig, channel_id)
     removable = [
         name
         for name in bone_names
@@ -1019,7 +1073,6 @@ def remove_custom_face_channel(rig, channel_id):
                 removed_bones += 1
         bpy.ops.object.mode_set(mode="OBJECT")
 
-    _remove_custom_face_label_objects(rig, channel_id)
     _write_custom_face_channels(
         rig,
         [item for item in channels if item["id"] != channel_id],
@@ -1822,9 +1875,7 @@ class KAI_OT_rename_custom_face_controller(bpy.types.Operator):
             return {"CANCELLED"}
         try:
             channel = rename_custom_face_channel(rig, self.channel_id, self.display_name)
-            meshes = _registered_face_meshes(context.scene)
-            if face_module_state(rig) != "NOT_GENERATED" and meshes:
-                generate_face_module(rig, meshes)
+            _update_custom_face_display(rig, channel)
         except (ValueError, RuntimeError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
