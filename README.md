@@ -4,6 +4,13 @@ Mixamo Rig Kai is a Blender add-on forked from the original Mixamo Rig project c
 
 This project is currently under active development. Kai focuses on flexible humanoid rig generation from editable Reference Skeletons, with safer iteration during character production.
 
+## Supported Blender Versions
+
+Blender **4.5 LTS through 5.2 LTS** is supported (`>= 4.5.0, < 5.3.0`).
+The primary verification versions are Blender **4.5.15 LTS** and **5.2.3 LTS**.
+Blender 4.2 LTS is outside the supported range from Kai 0.6.10 onward; historical verification records are retained.
+See [isolated validation procedures](tools/VALIDATION.md) for the test matrix and environment safety checks.
+
 ## Features
 
 - Reference Skeleton generation from bundled templates
@@ -132,6 +139,21 @@ Planned:
 - Additional UI Improvements
 
 ## Changelog
+
+### v0.6.10 Preview — Blender 4.5 LTS to 5.2 LTS (Unreleased)
+
+- Set the supported Blender range to 4.5.0 or newer and earlier than 5.3.0; Blender 4.2 LTS is no longer supported
+- Retained the Facial rename and shared-label safety fixes from the 0.6.9 verification candidate
+- Added Reference Rig generation, Rebuild safety, actual retarget/bake rotation outputs, prefix handling, and save/reopen compatibility tests
+- Aligned development instructions and isolated validation procedures with the new support range
+
+### v0.6.9 Preview — Facial Rename and Shared Label Safety (Unreleased)
+
+- Rename Custom Controller updates the Display Name and viewport Text directly, preserving controller poses, bones, Actions, keyframes, Drivers, and per-mesh Mapping
+- Copy shared Text labels before renaming and preserve labels still referenced by another Armature Object during removal or regeneration
+- Remove unused generated Text curve data together with its label object
+- Reject Custom Controller add/rename/remove and Face Module generation/removal when another Armature Object shares the same Armature data; make the Armature data single-user first
+- Added isolated regression coverage for independent and linked duplicates, animation preservation, missing labels, repeated cleanup, and save/reopen persistence
 
 ### v0.6.8 Preview — Facial v0.1 Phase 2
 

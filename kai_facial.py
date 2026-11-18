@@ -609,7 +609,23 @@ def _next_custom_face_channel_id(rig):
             return channel_id
 
 
+def _face_armature_data_is_shared(rig):
+    return any(
+        other.type == "ARMATURE" and other != rig and other.data == rig.data
+        for other in bpy.data.objects
+    )
+
+
+def _require_single_user_face_armature(rig):
+    if _face_armature_data_is_shared(rig):
+        raise RuntimeError(
+            "Face edits require single-user Armature data; "
+            "make this rig's Armature data single-user before editing"
+        )
+
+
 def add_custom_face_channel(rig, display_name):
+    _require_single_user_face_armature(rig)
     display_name = str(display_name or "").strip()
     if not display_name:
         raise ValueError("Display Name is required")
@@ -626,6 +642,7 @@ def add_custom_face_channel(rig, display_name):
 
 
 def rename_custom_face_channel(rig, channel_id, display_name):
+    _require_single_user_face_armature(rig)
     display_name = str(display_name or "").strip()
     if not display_name:
         raise ValueError("Display Name is required")
@@ -690,10 +707,7 @@ def _remove_custom_face_label_objects(rig, channel_id=None):
 
     # Legacy labels only store the Armature datablock name. That cannot identify
     # one rig object when linked duplicates share the same Armature data.
-    shared_data = any(
-        other.type == "ARMATURE" and other != rig and other.data == rig.data
-        for other in bpy.data.objects
-    )
+    shared_data = _face_armature_data_is_shared(rig)
     if not shared_data:
         for obj in bpy.data.objects:
             if not obj.get("kai_face_label"):
@@ -711,7 +725,7 @@ def _remove_custom_face_label_objects(rig, channel_id=None):
         data = obj.data
         bpy.data.objects.remove(obj, do_unlink=True)
         removed += 1
-        if data is not None and data.users == 0 and data.bl_rna.identifier == "Curve":
+        if isinstance(data, bpy.types.Curve) and data.users == 0:
             bpy.data.curves.remove(data)
     return removed
 
@@ -743,8 +757,10 @@ def _create_custom_face_label_object(rig, spec):
 
 def _update_custom_face_display(rig, channel):
     """Rename the displayed label without rebuilding bones, poses or drivers."""
+    _require_single_user_face_armature(rig)
     channel_id = channel["id"]
     display_name = channel["display_name"]
+    label_spec = {"channel_id": channel_id, "display_name": display_name}
     for name in (
         custom_face_bone_name(channel_id),
         _custom_face_label_name(channel_id),
@@ -758,11 +774,11 @@ def _update_custom_face_display(rig, channel):
         return
     shape = label.custom_shape
     if shape is None:
-        label.custom_shape = _create_custom_face_label_object(rig, channel)
+        label.custom_shape = _create_custom_face_label_object(rig, label_spec)
     elif shape.type == "FONT" and shape.get("kai_face_label"):
         if _label_is_used_by_other_rig(shape, rig):
             # A duplicated rig may still use the same Text object. Copy on write.
-            label.custom_shape = _create_custom_face_label_object(rig, channel)
+            label.custom_shape = _create_custom_face_label_object(rig, label_spec)
         else:
             if shape.data.users > 1:
                 shape.data = shape.data.copy()
@@ -1027,6 +1043,7 @@ def _driver_uses_bone(fcurve, rig, bone_name):
 
 def remove_custom_face_channel(rig, channel_id):
     """Remove one custom definition, its bone, Kai Drivers, and Mapping entries."""
+    _require_single_user_face_armature(rig)
     channels = get_custom_face_channels(rig)
     if not any(item["id"] == channel_id for item in channels):
         raise ValueError(f"Custom Facial Channel not found: {channel_id}")
@@ -1119,6 +1136,7 @@ def _remove_empty_collection(rig, name):
 
 
 def remove_face_module(rig, meshes=None):
+    _require_single_user_face_armature(rig)
     drivers = _remove_face_drivers(rig, meshes)
     drivers += _remove_face_follow_driver(rig)
     _remove_custom_face_label_objects(rig)
@@ -1253,6 +1271,7 @@ def _validate_module_bone_names(rig, module_id, names):
 
 
 def generate_face_module(rig, meshes):
+    _require_single_user_face_armature(rig)
     mapping = get_face_mapping(rig)
     custom_specs = _custom_face_controller_specs(rig)
     output_specs = _face_output_specs(rig)
@@ -1824,7 +1843,7 @@ class KAI_OT_add_custom_face_controller(bpy.types.Operator):
             return {"CANCELLED"}
         try:
             channel = add_custom_face_channel(rig, scene.kai_custom_face_display_name)
-        except ValueError as exc:
+        except (ValueError, RuntimeError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
 
@@ -1922,7 +1941,7 @@ class KAI_OT_remove_custom_face_controller(bpy.types.Operator):
         rebuild = face_module_state(rig) != "NOT_GENERATED" and bool(meshes)
         try:
             bones, drivers = remove_custom_face_channel(rig, self.channel_id)
-        except ValueError as exc:
+        except (ValueError, RuntimeError) as exc:
             self.report({"ERROR"}, str(exc))
             return {"CANCELLED"}
         if context.scene.kai_custom_face_selected_id == self.channel_id:
@@ -2018,7 +2037,11 @@ class KAI_OT_remove_face_module(bpy.types.Operator):
 
     def execute(self, context):
         rig = _active_armature(context)
-        bones, drivers = remove_face_module(rig, _registered_face_meshes(context.scene))
+        try:
+            bones, drivers = remove_face_module(rig, _registered_face_meshes(context.scene))
+        except RuntimeError as exc:
+            self.report({"ERROR"}, str(exc))
+            return {"CANCELLED"}
         self.report({"INFO"}, f"Removed Face Module: {bones} bones, {drivers} drivers")
         return {"FINISHED"}
 

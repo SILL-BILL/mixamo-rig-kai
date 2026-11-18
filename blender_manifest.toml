@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "mixamo_rig_kai"
-version = "0.6.9"
+version = "0.6.10"
 name = "Mixamo Rig Kai"
 tagline = "Variable spine and neck support for Mixamo rigs"
 maintainer = "Gonsaku"
@@ -11,8 +11,8 @@ website = "https://github.com/SILL-BILL/mixamo-rig-kai"
 
 tags = ["Import-Export", "Rigging"]
 
-blender_version_min = "4.2.0"
-blender_version_max = "5.5.999"
+blender_version_min = "4.5.0"
+blender_version_max = "5.3.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
 

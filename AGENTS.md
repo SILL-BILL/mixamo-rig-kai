@@ -53,19 +53,22 @@ Never create a Kai release from `main` unless the repository structure is intent
 Current supported Blender versions:
 
 ```text
-Blender 4.2+
+Blender 4.5 LTS through Blender 5.2 LTS (>= 4.5.0, < 5.3.0)
 ```
 
 Primary verification versions:
 
 ```text
-Blender 4.2.23 LTS
-Blender 5.1.1
+Blender 4.5.15 LTS
+Blender 5.2.3 LTS
 ```
 
 New features should remain compatible with both versions unless explicitly documented otherwise.
 
-Do not introduce Blender API usage that breaks Blender 4.2 compatibility without approval.
+Blender 4.2 LTS is unsupported from Kai 0.6.10 onward. Preserve historical verification records in analysis/; do not rewrite past test results.
+See tools/VALIDATION.md for isolated validation procedures.
+
+Do not introduce Blender API usage that breaks Blender 4.5 compatibility without approval.
 
 ---
 
@@ -539,8 +542,8 @@ For release verification, use a clean or isolated Blender profile when practical
 Test with:
 
 ```text
-Blender 4.2.23 LTS
-Blender 5.1.1
+Blender 4.5.15 LTS
+Blender 5.2.3 LTS
 ```
 
 For each version verify:
@@ -1004,6 +1007,33 @@ Do not silently rename public properties, saved Mapping keys, bone names, operat
 
 # Testing Expectations
 
+## Panda Factory Test Data Management
+
+- Canonical test .blend files, FBX and images belong in the existing Google Drive
+  folder panda-factory/test-data/blender/, not in this Git repository.
+- Generate test data outside all repository worktrees. lab/ is temporary workspace,
+  not a permanent storage location.
+- Before Drive registration, report each candidate's filename, purpose, local path,
+  generator/provenance and SHA-256. Mark it pending; local staging is not durable storage.
+- Do not upload to Drive or overwrite existing Drive files without separate instruction.
+- After an authorized Drive save, use the existing Panda Factory｜テストデータ台帳.
+  Do not create a new database. Report any required schema/option changes before making them.
+- GitHub tracks source, tests/generators, procedures, development documentation and
+  required product resources. Preserve lib/cs.blend and other legitimate product assets.
+- Do not broadly modify .gitignore or delete existing resources for test-data cleanup.
+- Before committing, run all three checks:
+
+```text
+git status --short
+git diff --cached --name-only
+git diff --cached --stat
+```
+
+Inspect staged paths for accidental test .blend, FBX, ZIP, images and logs.
+Do not reject a legitimate product resource such as lib/cs.blend merely by extension.
+Keep 0.6.10 and existing P2 fixes protected while changing only development tests/docs.
+Commit, Push, tags, Release and Extension Repository updates still require user instruction.
+
 When modifying rig generation:
 
 Test at least:
@@ -1092,8 +1122,8 @@ Before declaring a Kai release complete:
 - [ ] Panda Tool remains in repository
 - [ ] Kai appears in repository
 - [ ] GitHub Pages deployment verified
-- [ ] Blender 4.2.23 LTS Sync / Install / Enable test passes
-- [ ] Blender 5.1.1 Sync / Install / Enable test passes
+- [ ] Blender 4.5.15 LTS Sync / Install / Enable test passes
+- [ ] Blender 5.2.3 LTS Sync / Install / Enable test passes
 - [ ] Final commits pushed
 - [ ] Final commit SHAs reported
 
@@ -1130,7 +1160,7 @@ Published endpoint:
 ## Blender Verification
 
 ```text
-Blender 4.2.23 LTS
+Blender 4.5.15 LTS
 Repository Sync:
 Discovery:
 Install:
@@ -1138,7 +1168,7 @@ Enable:
 UI:
 Result:
 
-Blender 5.1.1
+Blender 5.2.3 LTS
 Repository Sync:
 Discovery:
 Install:
